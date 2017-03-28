@@ -169,12 +169,12 @@ int GOAL_COORD[2] = {endx, endy};
 int main(){
     /* Read data files containing velocity information
      * ------------------------------------------------*/
-    vXVec = readDataToVecs("./U.txt", nX, nY, nT);
-    vYVec = readDataToVecs("./V.txt", nX, nY, nT);
+    vXVec = readDataToVecs("../U.txt", nX, nY, nT);
+    vYVec = readDataToVecs("../V.txt", nX, nY, nT);
 
     /* Read in obstacle data
      * -------------------------*/
-    OBS = readDataToVecs("./obstacles.txt", nX, nY, 1);
+    OBS = readDataToVecs("../obstacles.txt", nX, nY, 1);
 
     /* Open files to save result
     ----------------------------*/
@@ -185,7 +185,7 @@ int main(){
 
     // reference path for comparison
     optPath refPath;
-    refPath.readPathFromFile("./refPath2.txt");       // read the optimalpath into file
+    refPath.readPathFromFile("../refPath2.txt");       // read the optimalpath into file
     refPath.createInterpolant();                    // create interpolants using the data
 
     /* general variable definitions
