@@ -26,13 +26,13 @@ const int nT = 519; // number of points in the t-direction
 // define parameters related to flow data
 //========================================
 
-std::vector< std::vector< std::vector< double > > > vXVec;
-std::vector< std::vector< std::vector< double > > > vYVec;
+vector< vector< vector< double > > > vXVec;
+vector< vector< vector< double > > > vYVec;
 
 //================================
 // obstacle definitions
 //================================
-std::vector< std::vector< std::vector< double > > > OBS;
+vector< vector< vector< double > > > OBS;
 // Rectangles: {x1, y1, x2, y2}, x1<x2, y1<y2
 
 //================================
@@ -225,8 +225,8 @@ int main(){
     Vector2d eigenVals, maxEigVec;
     double maxEig;
 
-    std::vector< std::vector< double > > pathVect;  // vector to store the computed path
-    std::vector< double > tRow;                     // vector to store a single x y t row of the path
+    vector< vector< double > > pathVect;  // vector to store the computed path
+    vector< double > tRow;                     // vector to store a single x y t row of the path
 
     double meandx, meandt, meanSubdx;
     int ndTExceeds;
@@ -273,7 +273,7 @@ int main(){
         ndTExceeds = 0;
         /* create graph container
         --------------------------*/
-        std::vector<graphNode*>* Graph = new std::vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
+        vector<graphNode*>* Graph = new vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
         //std::vector<graphNode*>* Graph = new std::vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
 
         for(int i=0; i<nHashBins; i++)
@@ -445,12 +445,12 @@ int main(){
         if(!heap.isHeapEmpty()){              // if the target is found before the end of the heap
             /* Save path details
             --------------------*/
-            std::vector< graphNode* > path = getPlannedPath(currNodePtr);
+            vector< graphNode* > path = getPlannedPath(currNodePtr);
             pathVect.clear();
             tRow.clear();
 
             // print path to file and compute meanError
-            std::cout.precision(8);
+            cout.precision(8);
             outf.precision(8);
             for (int a=0; a<path.size(); a++)
             {
