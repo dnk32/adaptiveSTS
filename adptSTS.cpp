@@ -221,9 +221,15 @@ int main(){
     clock_t stTime, endTime, stSearch, endSearch;
     double searchTime;
 
-    Matrix2d divV, hermV, eigenVecs;
+    Matrix<double, 2, 2> divV;
+    Matrix2d hermV, eigenVecs;
     Vector2d eigenVals, maxEigVec;
     double maxEig;
+    int maxEigInd;
+
+
+    double intX1, intX2, intY1, intY2, intT1, intT2;
+    double xr, yr;
 
     vector< vector< double > > pathVect;  // vector to store the computed path
     vector< double > tRow;                     // vector to store a single x y t row of the path
@@ -322,14 +328,23 @@ int main(){
             hermV = divV.transpose()*divV;              // to compute the spectral norm of the divergence
 
             EigenSolver<Matrix2d> eigSolve(hermV);      // Eigenvalue solver object for the hermV matrix
-            Matrix<complex<double>, 2,1> eigVs = eigSolve.eigenvalues();    // eigenvalues of the hermV matrix
+            eigenVals = eigSolve.eigenvalues().real();  // eigenvalues of the hermV matrix, get only real parts since hermV is symmetric
+            eigenVecs = eigSolve.eigenvectors().real(); // get eigenvectors of the matrix
 
-            eigenVals = eigVs.real();                   // get only the real parts, since hermV is symmetric
-            maxEig = eigenVals(0)>=eigenVals(1)?eigenVals(0):eigenVals(1);   // get maximum eigen value and eigen vector
-            
+            maxEig = eigenVals.maxCoeff(&maxEigInd);             // get maximum eigenvalue
+            maxEigVec = eigenVecs.col(maxEigInd);      // get eigenvector corresponding to max eigenvalue
+
             vSel =(vF<Vm/1.0)? Vm/1.0: vF;
-            dxAllowed = min( p*vSel/sqrt(maxEig), dxMax );          // max allowable dx
+            dxAllowed = p*vSel/sqrt(maxEig);          // max allowable dx
             dtAllowed = min( p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) ), dtMax );   // max allowable dt
+            intX1 = currNodePtr->x + dxAllowed*maxEigVec(0);
+            intY1 = currNodePtr->y + dxAllowed*maxEigVec(1);
+
+            intX2 = (currNodePtr->x+intX1)/2; 
+            intY2 = (currNodePtr->y+intY1)/2;
+            findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
+
+            dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
 //            if (dxAllowed < dxMax/10.0) dxAllowed = dxMax/10;
 //            if (dtAllowed < dtMax/10.0) dtAllowed = dtMax/10;
             

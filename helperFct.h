@@ -60,7 +60,7 @@ double getInterpVal(double lx, double ly, double lt, double val000, double val10
 }
 
 // interpolate flow velocity using the available data
-void getFlowFromVecs(int x,int y,int t,double &vx,double &vy)
+void getFlowFromVecs(double x,double y,double t,double &vx,double &vy)
 {
     /* Inputs
         x : x cordinate in the grid
@@ -103,7 +103,7 @@ void getFlowFromVecs(int x,int y,int t,double &vx,double &vy)
 
 }
 
-void getFlowFromVecs(int x, int y, int t, double &vX, double &vY, double &dvXdx, double &dvXdy, double &dvYdx, double &dvYdy, double &dvXdt, double &dvYdt){
+void getFlowFromVecs(double x, double y, double t, double &vX, double &vY, double &dvXdx, double &dvXdy, double &dvYdx, double &dvYdy, double &dvXdt, double &dvYdt){
    
     int nx = x/xSpData;
     int ny = y/ySpData;
@@ -228,6 +228,111 @@ bool isDirAccessible(double vF, double th){
     return true;
 }
 
+//-----------------------------
+// Function to find max dX
+//-----------------------------
+void findDx(double x1, double y1, double x2, double y2, double t1, double t2, double vF0, double vSel, double &xr, double &yr, double &tr){
+    double v1, v2, vx, vy;
+    getFlowFromVecs( x1,y1,t1,vx,vy );
+    v1 = sqrt( vx*vx+vy*vy );
+    getFlowFromVecs( x2,y2,t2,vx,vy );
+    v2 = sqrt( vx*vx+vy*vy );
+    
+    double xt, yt, tt;
+
+    double vDiff1 = fabs(v1-vF0);
+    double vDiff2 = fabs(v2-vF0);
+    if ( vDiff1 < p*vSel){
+        xt = x1; yt = y1; tt = t1;
+        x1 = x1 + x1-x2; y1 = 2*y1-y2; t1 = 2*t1-t2;
+        x2 = xt; y2 = yt; t2 = tt;
+        findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
+        return;
+    }
+    else if (vDiff2 > p*vSel){
+        xt = x2; yt = y2; tt = t2;
+        x2 = 2*x2-x1; y2 = 2*y2-y1; t2 = 2*t2-t1;
+        x1 = xt; y1 = yt; t1 = tt;
+        findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
+        return;
+    }
+    else {
+        xt = (x1+x2)/2; yt = (y1+y2)/2; tt = (t1+t2)/2;
+        getFlowFromVecs(xt,yt,tt,vx,vy);
+        v1 = sqrt( vx*vx+vy*vy );
+        vDiff1 = fabs(v1-vF0);
+        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
+            xr = xt;
+            yr = yt;
+            tr = tt;
+            return;
+        }
+        else if ( vDiff1 > p*vSel){
+            x1 = xt; y1 = yt; t1 = tt;
+            findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
+            return;
+        }
+        else {
+            x2 = xt; y2 = yt; t2 = tt;
+            findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
+            return;
+        }
+
+    }
+}
+
+void findDx(double x1, double y1, double x2, double y2, double t, double vF0, double vSel, double &xr, double &yr){
+    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin){
+        xr = x1; yr = y1;
+        return;
+    }
+    double v1, v2, vx, vy;
+    getFlowFromVecs( x1,y1,t,vx,vy );
+    v1 = sqrt( vx*vx+vy*vy );
+    getFlowFromVecs( x2,y2,t,vx,vy );
+    v2 = sqrt( vx*vx+vy*vy );
+    
+    double xt, yt;
+
+    double vDiff1 = fabs(v1-vF0);
+    double vDiff2 = fabs(v2-vF0);
+    if ( vDiff1 < p*vSel){
+        xt = x1; yt = y1;
+        x1 = x1 + x1-x2; y1 = 2*y1-y2;
+        x2 = xt; y2 = yt;
+        findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
+        return;
+    }
+    else if (vDiff2 > p*vSel){
+        xt = x2; yt = y2;
+        x2 = 2*x2-x1; y2 = 2*y2-y1;
+        x1 = xt; y1 = yt;
+        findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
+        return;
+    }
+    else {
+        xt = (x1+x2)/2; yt = (y1+y2)/2;
+        getFlowFromVecs(xt,yt,t,vx,vy);
+        v1 = sqrt( vx*vx+vy*vy );
+        vDiff1 = fabs(v1-vF0);
+        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
+            xr = xt;
+            yr = yt;
+            return;
+        }
+        else if ( vDiff1 > p*vSel){
+            x1 = xt; y1 = yt;
+            findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
+            return;
+        }
+        else {
+            x2 = xt; y2 = yt;
+            findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
+            return;
+        }
+
+    }
+}
 
 ////---------------------------
 //// to_string for windows
