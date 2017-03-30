@@ -68,7 +68,7 @@ int xmax = 52000;
 int xmin = 14000;
 int ymax = 52000;
 int ymin = 30000;
-int tmax = 180000;
+int tmax = 185000;
 int tmin = 0;
 
 //===========================
@@ -95,7 +95,7 @@ int nDivsAll[nTotRuns] = {3};
 int nDivs;
 
 // flow Velocity threshold
-double p = 0.1;
+double p = 0.05;
 
 //cost function parameters
 double k1 = 0.0005;
@@ -229,7 +229,7 @@ int main(){
 
 
     double intX1, intX2, intY1, intY2, intT1, intT2;
-    double xr, yr;
+    double xr, yr, tr;
 
     vector< vector< double > > pathVect;  // vector to store the computed path
     vector< double > tRow;                     // vector to store a single x y t row of the path
@@ -336,7 +336,8 @@ int main(){
 
             vSel =(vF<Vm/1.0)? Vm/1.0: vF;
             dxAllowed = p*vSel/sqrt(maxEig);          // max allowable dx
-            dtAllowed = min( p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) ), dtMax );   // max allowable dt
+            dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
+
             intX1 = currNodePtr->x + dxAllowed*maxEigVec(0);
             intY1 = currNodePtr->y + dxAllowed*maxEigVec(1);
 
@@ -345,6 +346,12 @@ int main(){
             findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
 
             dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
+
+            intT1 = currNodePtr->t + dtAllowed;
+            intT2 = (currNodePtr->t+intT1)/2;
+            findDt(currNodePtr->x, currNodePtr->y, intT1, intT2, vF, vSel, tr);
+            dtAllowed = fabs(tr-currNodePtr->t);
+
 //            if (dxAllowed < dxMax/10.0) dxAllowed = dxMax/10;
 //            if (dtAllowed < dtMax/10.0) dtAllowed = dtMax/10;
             

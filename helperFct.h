@@ -334,6 +334,58 @@ void findDx(double x1, double y1, double x2, double y2, double t, double vF0, do
     }
 }
 
+void findDt(double x, double y, double t1, double t2, double vF0, double vSel, double &tr){
+    if ( t1>=tmax || t1<=tmin ){
+        tr = t1;
+        return;
+    }
+    double v1, v2, vx, vy;
+    getFlowFromVecs( x,y,t1,vx,vy );
+    v1 = sqrt( vx*vx+vy*vy );
+    getFlowFromVecs( x,y,t2,vx,vy );
+    v2 = sqrt( vx*vx+vy*vy );
+    
+    double tt;
+
+    double vDiff1 = fabs(v1-vF0);
+    double vDiff2 = fabs(v2-vF0);
+    if ( vDiff1 < p*vSel){
+        tt = t1;
+        t1 = 2*t1-t2;
+        t2 = tt;      
+        findDt(x,y,t1,t2,vF0,vSel,tr);
+        return;
+    }
+    else if (vDiff2 > p*vSel){
+        tt = t2;
+        t2 = 2*t2-t1;
+        t1 = tt;
+        findDt(x,y,t1,t2,vF0,vSel,tr);
+        return;
+    }
+    else {
+        tt = (t1+t2)/2;
+        getFlowFromVecs(x,y,tt,vx,vy);
+        v1 = sqrt( vx*vx+vy*vy );
+        vDiff1 = fabs(v1-vF0);
+        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
+            tr = tt;
+            return;
+        }
+        else if ( vDiff1 > p*vSel){
+            t1 = tt;
+            findDt(x,y,t1,t2,vF0,vSel,tr);
+            return;
+        }
+        else {
+            t2 = tt;
+            findDt(x,y,t1,t2,vF0,vSel,tr);
+            return;
+        }
+
+    }
+}
+
 ////---------------------------
 //// to_string for windows
 ////---------------------------
