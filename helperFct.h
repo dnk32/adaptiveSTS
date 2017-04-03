@@ -232,6 +232,10 @@ bool isDirAccessible(double vF, double th){
 // Function to find max dX
 //-----------------------------
 void findDx(double x1, double y1, double x2, double y2, double t1, double t2, double vF0, double vSel, double &xr, double &yr, double &tr){
+    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin || t1>=tmax || t1<=tmin ){
+        xr = x1; yr = y1; tr = t1;
+        return;
+    }
     double v1, v2, vx, vy;
     getFlowFromVecs( x1,y1,t1,vx,vy );
     v1 = sqrt( vx*vx+vy*vy );

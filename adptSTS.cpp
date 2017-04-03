@@ -85,6 +85,12 @@ double Vm = 0.5; // m/s or mm/ms
 double dxMax = 10000;
 double dtMax = 2000;
 
+// discrete time layers considered
+int dTLayer = 100;              // all time dimensions will be  multiples of dTlayer.
+                                // this is done to speed up the search
+// minimum internode distance
+double xEpsMin = 50;            // smaller values will lead to large node expansions
+
 // number of runs
 const int nTotRuns = 1;
 
@@ -95,7 +101,7 @@ int nDivsAll[nTotRuns] = {3};
 int nDivs;
 
 // flow Velocity threshold
-double p = 0.05;
+double p = 0.1;
 
 //cost function parameters
 double k1 = 0.0005;
@@ -116,9 +122,6 @@ double vMinH = (Vm<vMinCost)? Vm:vMinCost;       // select the smaller of vMinCo
 
 /* second hash function is used
  * *****************************/
-// discrete time layers considered
-int dTLayer = 200;              // all time dimensions will be  multiples of dTlayer.
-                                // this is done to speed up the search
 
 // the dimensions of each hashbin
 int dxBin = 250;
@@ -234,7 +237,11 @@ int main(){
     vector< vector< double > > pathVect;  // vector to store the computed path
     vector< double > tRow;                     // vector to store a single x y t row of the path
 
-    double meandx, meandt, meanSubdx;
+    double meandx, meanSubdx;
+    double mindx = 50000.0;
+    double maxdx = 0.0;
+    double minXeps = 1000.0;
+    double maxXeps = 0.0;
     int ndTExceeds;
     int dtAllLessdT = 0;
     int dTmin = dtMax;
@@ -274,7 +281,6 @@ int main(){
         //temporary variables for debugging
         tempOut.open("tempDataOut.txt", ofstream::out | ofstream::trunc);
         meandx = 0;
-        meandt = 0;
         meanSubdx = 0;
         ndTExceeds = 0;
         /* create graph container
@@ -334,7 +340,7 @@ int main(){
             maxEig = eigenVals.maxCoeff(&maxEigInd);             // get maximum eigenvalue
             maxEigVec = eigenVecs.col(maxEigInd);      // get eigenvector corresponding to max eigenvalue
 
-            vSel =(vF<Vm/1.0)? Vm/1.0: vF;
+            vSel =(vF<Vm/5.0)? Vm/5.0: vF;//(vF<Vm/1.0)? Vm/1.0: vF;
             dxAllowed = p*vSel/sqrt(maxEig);          // max allowable dx
             dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
 
@@ -343,13 +349,17 @@ int main(){
 
             intX2 = (currNodePtr->x+intX1)/2; 
             intY2 = (currNodePtr->y+intY1)/2;
-            findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
-
-            dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
-
+            
             intT1 = currNodePtr->t + dtAllowed;
             intT2 = (currNodePtr->t+intT1)/2;
-            findDt(currNodePtr->x, currNodePtr->y, intT1, intT2, vF, vSel, tr);
+
+            //findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
+            //findDt(currNodePtr->x, currNodePtr->y, intT1, intT2, vF, vSel, tr);
+
+            findDx(intX1,intY1,intX2,intY2,intT1,intT2,vF,vSel,xr,yr,tr);
+            
+            dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
+
             dtAllowed = fabs(tr-currNodePtr->t);
 
 //            if (dxAllowed < dxMax/10.0) dxAllowed = dxMax/10;
@@ -363,20 +373,23 @@ int main(){
             
             // round dt to the nearest time layer
             dT = round( (dtAllowed)/dTLayer )*dTLayer;
-            //dT = 1000;
-            //if (dtAllowed < dT)
-            //    dtAllLessdT++;
-
-            //if (dT<9*dTLayer)
-            //    dT = 9*dTLayer;
+            if (dT==0)
+                dT = dTLayer;
+            
             // distance between two nodes in this expansion
-            xEps = (Vm*dT)/nDivs;       
+            xEps = max( (Vm*dT)/(2*nDivs), xEpsMin);       
 
             // mean dx and dt limit computation for debugging
             meandx = ( meandx*(nExpandedNodes-1) + dxAllowed )/nExpandedNodes;
-            meandt = ( meandt*(nExpandedNodes-1) + dtAllowed )/nExpandedNodes;
-            meanSubdx = ( meanSubdx*(nExpandedNodes-1) + xEps )/(nExpandedNodes); 
+            mindx = (mindx>dxAllowed)?dxAllowed:mindx;
+            maxdx = (maxdx<dxAllowed)?dxAllowed:maxdx;
 
+            meanSubdx = ( meanSubdx*(nExpandedNodes-1) + xEps )/(nExpandedNodes); 
+            maxXeps = (maxXeps<xEps)?xEps:maxXeps;
+            minXeps = (minXeps>xEps)?xEps:minXeps;
+            //if (dT>10000 && (vF<Vm/10) )
+            //    cout<< "highDT"<<endl;
+            
             dTmin = (dT < dTmin )?dT : dTmin; 
             dTmax = (dT > dTmax )?dT : dTmax; 
             dTmean = ( dTmean*(nExpandedNodes-1) + dT )/nExpandedNodes;
@@ -398,7 +411,7 @@ int main(){
                for(int i=0; i<Graph[hashBin].size(); i++){
                    if(Graph[hashBin][i]->t == nt){     // proceed if the nodes have the same time cordinate
                        nDist = sqrt( (double)( Graph[hashBin][i]->x - nx )*(double)( Graph[hashBin][i]->x - nx ) + (double)( Graph[hashBin][i]->y - ny )*(double)( Graph[hashBin][i]->y - ny ) );
-                       if ( nDist < xEps/2.0 ){
+                       if ( nDist < xEps ){
 //                       if(Graph[hashBin][i]->x == nx && Graph[hashBin][i]->y == ny){
                            neighbNode = Graph[hashBin][i];
                            break;
@@ -434,15 +447,22 @@ int main(){
             }
             if(!(nExpandedNodes%100000)){
                 tempOut << "***********************************************************************" << endl;
-                tempOut << " mean dxAllowed = " << meandx << endl;
-                tempOut << " mean dtAllowed = " << meandt << endl;
-                tempOut << " mean xEps      = " << meanSubdx << endl;
-                tempOut << " nExp           = " << nExpandedNodes << endl<<endl;
-                tempOut << " dtAll > dxAll*V: " << ndTExceeds << endl;
-                tempOut << " dtAll < dT     : " << dtAllLessdT << endl;
+                tempOut << " nExp           = " << nExpandedNodes << endl;
+                tempOut << " dtAll > dxAll/V: " << ndTExceeds << endl;
+                tempOut << " dtAll < dT     : " << dtAllLessdT << endl<<endl;
+
+                tempOut << " mindx          = " << mindx << endl;
+                tempOut << " maxdx          = " << maxdx << endl;
+                tempOut << " mean dxAllowed = " << meandx << endl<<endl;
+                ;
+                tempOut << " min xEps       = " << minXeps << endl;
+                tempOut << " max xEps       = " << maxXeps << endl;
+                tempOut << " mean xEps      = " << meanSubdx << endl<<endl;
+
                 tempOut << " dtMin adptv    : " << dTmin << endl;
                 tempOut << " dtMax adptv    : " << dTmax << endl;
                 tempOut << " dtMean adptv   : " << dTmean << endl <<  endl;
+                
                 tempOut << " vFmean   : " << vFmean << endl;
                 tempOut << " vFmax    : " << vFmax << endl;
                 tempOut << " vFmin    : " << vFmin << endl;
@@ -451,14 +471,14 @@ int main(){
         } // end of while loop searching through the Heap
         /* End of main graph search loop */
 
-        outfProgress << "dxMax         : " << dxMax << endl;
-        outfProgress << "dtMax         : " << dtMax << endl;
+        outfProgress << "dTlayer       : " << dTLayer << endl;
+        outfProgress << "xEpsMin       : " << xEpsMin << endl;
         outfProgress << "nDivs         : " << nDivs << endl;
         outfProgress << "errThresh (p) : " << p << endl;
         outfProgress << "nExpanded     : " << nExpandedNodes << endl;
 
-        thisPathProgress << "dxMax         : " << dxMax << endl;
-        thisPathProgress << "dtMax         : " << dtMax << endl;
+        thisPathProgress << "dTlayer       : " << dTLayer << endl;
+        thisPathProgress << "xEpsMin       : " << xEpsMin << endl;
         thisPathProgress << "nDivs         : " << nDivs << endl;
         thisPathProgress << "errThresh (p) : " << p << endl;
         thisPathProgress << "nExpanded     : " << nExpandedNodes << endl;
