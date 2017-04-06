@@ -228,10 +228,61 @@ bool isDirAccessible(double vF, double th){
     return true;
 }
 
+double getFlowMag(double x, double y, double t){
+    double vx, vy;
+    getFlowFromVecs(x,y,t,vx,vy);
+    return sqrt(vx*vx+vy*vy);
+}
 //-----------------------------
 // Function to find max dX
 //-----------------------------
-void findDx(double x1, double y1, double x2, double y2, double t1, double t2, double vF0, double vSel, double &xr, double &yr, double &tr){
+void findDx(double x1, double y1, double t1, double v1, double v2, double v3, double vF0, double vSel, double &xr, double &yr, double &tr){
+    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin || t1>=tmax || t1<=tmin ){
+        xr = x1; yr = y1; tr = t1;
+        return;
+    }
+    double x2, y2, t2;
+    
+    double vDiff1 = fabs( getFlowMag(x1,y1,t1)-vF0 );
+    double vDiffx, vDiffy, vDifft;
+    double dfdx, dfdy, dfdt;
+    double L, dfdXL;
+
+    while ( fabs(vDiff1-p*vSel)>0.1*p*vSel ){
+        x2 = (x1==0)?0.0001:0.9999*x1;
+        y2 = (y1==0)?0.0001:0.9999*y1;
+        t2 = (t1==0)?0.0001:0.9999*t1;
+        
+        vDiffx = fabs( getFlowMag(x2,y1,t1)-vF0 );
+        vDiffy = fabs( getFlowMag(x1,y2,t1)-vF0 );
+        vDifft = fabs( getFlowMag(x1,y1,t2)-vF0 );
+
+        dfdx = (vDiffx - vDiff1)/(x2-x1);
+        dfdy = (vDiffy - vDiff1)/(y2-y1);
+        dfdt = (vDifft - vDiff1)/(t2-t1);
+        
+        dfdXL = ( v1*dfdx + v2*dfdy + v3*dfdt );
+        if ( fabs(dfdXL) < 0.0001 ){
+            xr = x1; yr = y1; tr = t1;
+            return;
+        }
+        L = ( p*vSel-vDiff1 )/dfdXL;
+
+        x1 = v1*L + x1;
+        y1 = v2*L + y1;
+        t1 = v3*L + t1;
+
+        vDiff1 = fabs( getFlowMag(x1,y1,t1)-vF0 );
+    }
+    
+    xr = x1; yr = y1; tr = t1;
+    return;
+}
+
+//-----------------------------
+// Function to find max dX
+//-----------------------------
+void findDx1(double x1, double y1, double x2, double y2, double t1, double t2, double vF0, double vSel, double &xr, double &yr, double &tr){
     if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin || t1>=tmax || t1<=tmin ){
         xr = x1; yr = y1; tr = t1;
         return;

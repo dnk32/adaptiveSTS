@@ -86,7 +86,7 @@ double dxMax = 10000;
 double dtMax = 2000;
 
 // discrete time layers considered
-int dTLayer = 100;              // all time dimensions will be  multiples of dTlayer.
+int dTLayer = 200;              // all time dimensions will be  multiples of dTlayer.
                                 // this is done to speed up the search
 // minimum internode distance
 double xEpsMin = 50;            // smaller values will lead to large node expansions
@@ -224,9 +224,9 @@ int main(){
     clock_t stTime, endTime, stSearch, endSearch;
     double searchTime;
 
-    Matrix<double, 2, 2> divV;
-    Matrix2d hermV, eigenVecs;
-    Vector2d eigenVals, maxEigVec;
+    Matrix<double, 2, 3> divV;
+    Matrix3d hermV, eigenVecs;
+    Vector3d eigenVals, maxEigVec;
     double maxEig;
     int maxEigInd;
 
@@ -330,10 +330,11 @@ int main(){
             vFmin = (vF<vFmin)?vF:vFmin;
 
             // compute maximum allowable dx and dt
-            divV << dvXdx, dvXdy, dvYdx, dvYdy;         // divergence of flow
+            //divV << dvXdx, dvXdy, dvYdx, dvYdy;         // divergence of flow
+            divV << dvXdx, dvXdy, dvXdt, dvYdx, dvYdy, dvYdt;         // divergence of flow
             hermV = divV.transpose()*divV;              // to compute the spectral norm of the divergence
 
-            EigenSolver<Matrix2d> eigSolve(hermV);      // Eigenvalue solver object for the hermV matrix
+            EigenSolver<Matrix3d> eigSolve(hermV);      // Eigenvalue solver object for the hermV matrix
             eigenVals = eigSolve.eigenvalues().real();  // eigenvalues of the hermV matrix, get only real parts since hermV is symmetric
             eigenVecs = eigSolve.eigenvectors().real(); // get eigenvectors of the matrix
 
@@ -342,21 +343,22 @@ int main(){
 
             vSel =(vF<Vm/5.0)? Vm/5.0: vF;//(vF<Vm/1.0)? Vm/1.0: vF;
             dxAllowed = p*vSel/sqrt(maxEig);          // max allowable dx
-            dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
+            //dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
 
             intX1 = currNodePtr->x + dxAllowed*maxEigVec(0);
             intY1 = currNodePtr->y + dxAllowed*maxEigVec(1);
+            intT1 = currNodePtr->t + dxAllowed*maxEigVec(2);
 
-            intX2 = (currNodePtr->x+intX1)/2; 
-            intY2 = (currNodePtr->y+intY1)/2;
+            //intX2 = (currNodePtr->x+intX1)/2; 
+            //intY2 = (currNodePtr->y+intY1)/2;
             
-            intT1 = currNodePtr->t + dtAllowed;
-            intT2 = (currNodePtr->t+intT1)/2;
+            //intT1 = currNodePtr->t + dtAllowed;
+            //intT2 = (currNodePtr->t+intT1)/2;
 
             //findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
             //findDt(currNodePtr->x, currNodePtr->y, intT1, intT2, vF, vSel, tr);
 
-            findDx(intX1,intY1,intX2,intY2,intT1,intT2,vF,vSel,xr,yr,tr);
+            findDx(intX1,intY1,intT1,maxEigVec(0),maxEigVec(1),maxEigVec(2),vF,vSel,xr,yr,tr);
             
             dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
 
