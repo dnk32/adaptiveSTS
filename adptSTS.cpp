@@ -10,6 +10,12 @@
 using namespace std;
 using namespace Eigen;
 
+//===========================
+// defines for the project
+//===========================
+#define dxType 2 // if dxType = 1 dxAllowed and dtAllowed computed together
+                 // if dxType = 2 dxAllowed and dtAllowed computed seperately
+
 //========================================
 // Environment description for flow velocity file
 //========================================
@@ -224,9 +230,15 @@ int main(){
     clock_t stTime, endTime, stSearch, endSearch;
     double searchTime;
 
+#if dxType==1   // considers 3D hermV to compute dxAllowed, dtAllowed
     Matrix<double, 2, 3> divV;
     Matrix3d hermV, eigenVecs;
     Vector3d eigenVals, maxEigVec;
+#elif dxType==2 // considers 2D hermV to compute dxAllowed only
+    Matrix<double, 2, 2> divV;
+    Matrix2d hermV, eigenVecs;
+    Vector2d eigenVals, maxEigVec;
+#endif
     double maxEig;
     int maxEigInd;
 
@@ -281,6 +293,7 @@ int main(){
         //temporary variables for debugging
         tempOut.open("tempDataOut.txt", ofstream::out | ofstream::trunc);
         meandx = 0;
+        dTmean = 0;
         meanSubdx = 0;
         ndTExceeds = 0;
         /* create graph container
@@ -324,42 +337,43 @@ int main(){
             getFlowFromVecs(currNodePtr->x,currNodePtr->y,currNodePtr->t,vx,vy, dvXdx, dvXdy, dvYdx, dvYdy, dvXdt, dvYdt);   // get the flow at current node
             thFlow = atan2(vy,vx);                                                  // direction of the flow
             vF = sqrt(vx*vx + vy*vy);
+            vSel =(vF<Vm/5.0)? Vm/5.0: vF;//(vF<Vm/1.0)? Vm/1.0: vF;
             
             vFmean = (vFmean*(nExpandedNodes-1) + vF)/nExpandedNodes;
             vFmax = (vF>vFmax)?vF:vFmax;
             vFmin = (vF<vFmin)?vF:vFmin;
 
             // compute maximum allowable dx and dt
-            //divV << dvXdx, dvXdy, dvYdx, dvYdy;         // divergence of flow
+#if dxType==1
             divV << dvXdx, dvXdy, dvXdt, dvYdx, dvYdy, dvYdt;         // divergence of flow
             hermV = divV.transpose()*divV;              // to compute the spectral norm of the divergence
-
             EigenSolver<Matrix3d> eigSolve(hermV);      // Eigenvalue solver object for the hermV matrix
+#elif dxType==2
+            divV << dvXdx, dvXdy, dvYdx, dvYdy;         // divergence of flow
+            hermV = divV.transpose()*divV;              // to compute the spectral norm of the divergence
+            EigenSolver<Matrix2d> eigSolve(hermV);      // Eigenvalue solver object for the hermV matrix
+#endif            //divV << dvXdx, dvXdy, dvYdx, dvYdy;         // divergence of flow
+            
             eigenVals = eigSolve.eigenvalues().real();  // eigenvalues of the hermV matrix, get only real parts since hermV is symmetric
             eigenVecs = eigSolve.eigenvectors().real(); // get eigenvectors of the matrix
 
             maxEig = eigenVals.maxCoeff(&maxEigInd);             // get maximum eigenvalue
             maxEigVec = eigenVecs.col(maxEigInd);      // get eigenvector corresponding to max eigenvalue
 
-            vSel =(vF<Vm/5.0)? Vm/5.0: vF;//(vF<Vm/1.0)? Vm/1.0: vF;
             dxAllowed = p*vSel/sqrt(maxEig);          // max allowable dx
-            //dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
-
             intX1 = currNodePtr->x + dxAllowed*maxEigVec(0);
             intY1 = currNodePtr->y + dxAllowed*maxEigVec(1);
+
+#if dxType==1
             intT1 = currNodePtr->t + dxAllowed*maxEigVec(2);
-
-            //intX2 = (currNodePtr->x+intX1)/2; 
-            //intY2 = (currNodePtr->y+intY1)/2;
-            
-            //intT1 = currNodePtr->t + dtAllowed;
-            //intT2 = (currNodePtr->t+intT1)/2;
-
-            //findDx(intX1,intY1,intX2,intY2,currNodePtr->t,vF,vSel,xr,yr);
-            //findDt(currNodePtr->x, currNodePtr->y, intT1, intT2, vF, vSel, tr);
-
             findDx(intX1,intY1,intT1,maxEigVec(0),maxEigVec(1),maxEigVec(2),vF,vSel,xr,yr,tr);
-            
+#elif dxType==2
+            dtAllowed = p*vSel/( sqrt( dvXdt*dvXdt + dvYdt*dvYdt ) );   // max allowable dt
+            intT1 = currNodePtr->t + dtAllowed;
+            findDx(intX1, intY1, currNodePtr->t, maxEigVec(0), maxEigVec(1), vF, vSel, xr, yr);
+            findDt(currNodePtr->x, currNodePtr->y, intT1, vF, vSel, tr);
+#endif
+
             dxAllowed = sqrt( (xr-currNodePtr->x)*(xr-currNodePtr->x) + (yr-currNodePtr->y)*(yr-currNodePtr->y) );
 
             dtAllowed = fabs(tr-currNodePtr->t);

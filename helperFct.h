@@ -16,10 +16,10 @@ int getHashBinNumber(int x, int y, int t){
 // function to read data files as vectors
 //========================================
 
-std::vector< std::vector< std::vector<double> > > readDataToVecs(string inFname, int nx, int ny, int nt){
-    std::vector< std::vector< std::vector<double> > > dataMat;
-    std::vector< std::vector< double > > dataRows;
-    std::vector<double> data;
+vector< vector< vector<double> > > readDataToVecs(string inFname, int nx, int ny, int nt){
+    vector< vector< vector<double> > > dataMat;
+    vector< vector< double > > dataRows;
+    vector<double> data;
     dataMat.clear(); dataRows.clear(); data.clear();
 
     ifstream inF(inFname);
@@ -201,9 +201,9 @@ double getHeuristic(int nx,int ny)
 //=============================================
 // return the planned path in a vector
 //=============================================
-std::vector< graphNode* > getPlannedPath(graphNode* currNodePtr)
+vector< graphNode* > getPlannedPath(graphNode* currNodePtr)
 {
-    std::vector<graphNode*> path;
+    vector<graphNode*> path;
     path.clear();
     //path.push_back(currNodePtr);
     //graphNode* parentNodePtr = currNodePtr->parent;
@@ -233,9 +233,10 @@ double getFlowMag(double x, double y, double t){
     getFlowFromVecs(x,y,t,vx,vy);
     return sqrt(vx*vx+vy*vy);
 }
-//-----------------------------
-// Function to find max dX
-//-----------------------------
+
+//==================================
+// Function to find max dX and dT
+//==================================
 void findDx(double x1, double y1, double t1, double v1, double v2, double v3, double vF0, double vSel, double &xr, double &yr, double &tr){
     if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin || t1>=tmax || t1<=tmin ){
         xr = x1; yr = y1; tr = t1;
@@ -279,307 +280,83 @@ void findDx(double x1, double y1, double t1, double v1, double v2, double v3, do
     return;
 }
 
-//-----------------------------
+//=========================
 // Function to find max dX
-//-----------------------------
-void findDx1(double x1, double y1, double x2, double y2, double t1, double t2, double vF0, double vSel, double &xr, double &yr, double &tr){
-    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin || t1>=tmax || t1<=tmin ){
-        xr = x1; yr = y1; tr = t1;
-        return;
-    }
-    double v1, v2, vx, vy;
-    getFlowFromVecs( x1,y1,t1,vx,vy );
-    v1 = sqrt( vx*vx+vy*vy );
-    getFlowFromVecs( x2,y2,t2,vx,vy );
-    v2 = sqrt( vx*vx+vy*vy );
-    
-    double xt, yt, tt;
-
-    double vDiff1 = fabs(v1-vF0);
-    double vDiff2 = fabs(v2-vF0);
-    if ( vDiff1 < p*vSel){
-        xt = x1; yt = y1; tt = t1;
-        x1 = x1 + x1-x2; y1 = 2*y1-y2; t1 = 2*t1-t2;
-        x2 = xt; y2 = yt; t2 = tt;
-        findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
-        return;
-    }
-    else if (vDiff2 > p*vSel){
-        xt = x2; yt = y2; tt = t2;
-        x2 = 2*x2-x1; y2 = 2*y2-y1; t2 = 2*t2-t1;
-        x1 = xt; y1 = yt; t1 = tt;
-        findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
-        return;
-    }
-    else {
-        xt = (x1+x2)/2; yt = (y1+y2)/2; tt = (t1+t2)/2;
-        getFlowFromVecs(xt,yt,tt,vx,vy);
-        v1 = sqrt( vx*vx+vy*vy );
-        vDiff1 = fabs(v1-vF0);
-        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
-            xr = xt;
-            yr = yt;
-            tr = tt;
-            return;
-        }
-        else if ( vDiff1 > p*vSel){
-            x1 = xt; y1 = yt; t1 = tt;
-            findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
-            return;
-        }
-        else {
-            x2 = xt; y2 = yt; t2 = tt;
-            findDx(x1,y1,x2,y2,t1,t2,vF0,vSel,xr,yr,tr);
-            return;
-        }
-
-    }
-}
-
-void findDx(double x1, double y1, double x2, double y2, double t, double vF0, double vSel, double &xr, double &yr){
-    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin){
+//=========================
+void findDx(double x1, double y1, double t1, double v1, double v2, double vF0, double vSel, double &xr, double &yr){
+    if ( x1>=xmax || y1>=ymax || x1<=xmin || y1<=ymin){ 
         xr = x1; yr = y1;
         return;
     }
-    double v1, v2, vx, vy;
-    getFlowFromVecs( x1,y1,t,vx,vy );
-    v1 = sqrt( vx*vx+vy*vy );
-    getFlowFromVecs( x2,y2,t,vx,vy );
-    v2 = sqrt( vx*vx+vy*vy );
-    
-    double xt, yt;
+    double vDiff1 = fabs( getFlowMag( x1, y1, t1 ) - vF0 );
+    double dfdx, dfdy, dfdXL, L;
+    double x2, y2;
 
-    double vDiff1 = fabs(v1-vF0);
-    double vDiff2 = fabs(v2-vF0);
-    if ( vDiff1 < p*vSel){
-        xt = x1; yt = y1;
-        x1 = x1 + x1-x2; y1 = 2*y1-y2;
-        x2 = xt; y2 = yt;
-        findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
-        return;
-    }
-    else if (vDiff2 > p*vSel){
-        xt = x2; yt = y2;
-        x2 = 2*x2-x1; y2 = 2*y2-y1;
-        x1 = xt; y1 = yt;
-        findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
-        return;
-    }
-    else {
-        xt = (x1+x2)/2; yt = (y1+y2)/2;
-        getFlowFromVecs(xt,yt,t,vx,vy);
-        v1 = sqrt( vx*vx+vy*vy );
-        vDiff1 = fabs(v1-vF0);
-        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
-            xr = xt;
-            yr = yt;
-            return;
-        }
-        else if ( vDiff1 > p*vSel){
-            x1 = xt; y1 = yt;
-            findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
-            return;
-        }
-        else {
-            x2 = xt; y2 = yt;
-            findDx(x1,y1,x2,y2,t,vF0,vSel,xr,yr);
+    while ( fabs(vDiff1-p*vSel) > 0.1*p*vSel ){
+        x2 = (x1==0)?0.0001:0.9999*x1;
+        y2 = (y1==0)?0.0001:0.9999*y1;
+
+        dfdx = ( fabs( getFlowMag(x2,y1,t1) - vF0  ) - vDiff1 )/(x2-x1); 
+        dfdy = ( fabs( getFlowMag(x1,y2,t1) - vF0  ) - vDiff1 )/(y2-y1);
+        dfdXL = v1*dfdx + v2*dfdy;
+        if ( dfdXL < 0.001 ){
+            xr = x1; yr = y1;
             return;
         }
 
+        L = ( p*vSel - vDiff1 )/dfdXL;
+
+        x1 = x1 + v1*L;
+        y1 = y1 + v2*L;
+
+        vDiff1 = fabs( getFlowMag( x1, y1, t1 ) - vF0 );
+        
     }
+
+    xr = x1; yr = y1;
+    return;
 }
 
-void findDt(double x, double y, double t1, double t2, double vF0, double vSel, double &tr){
+//=========================
+// Function to find max dT
+//=========================
+void findDt(double x1, double y1, double t1, double vF0, double vSel, double &tr){
     if ( t1>=tmax || t1<=tmin ){
         tr = t1;
         return;
     }
-    double v1, v2, vx, vy;
-    getFlowFromVecs( x,y,t1,vx,vy );
-    v1 = sqrt( vx*vx+vy*vy );
-    getFlowFromVecs( x,y,t2,vx,vy );
-    v2 = sqrt( vx*vx+vy*vy );
     
-    double tt;
+    double vDiff1 = fabs( getFlowMag( x1, y1, t1 ) - vF0 );
+    double dfdt;
+    double t2;
 
-    double vDiff1 = fabs(v1-vF0);
-    double vDiff2 = fabs(v2-vF0);
-    if ( vDiff1 < p*vSel){
-        tt = t1;
-        t1 = 2*t1-t2;
-        t2 = tt;      
-        findDt(x,y,t1,t2,vF0,vSel,tr);
-        return;
-    }
-    else if (vDiff2 > p*vSel){
-        tt = t2;
-        t2 = 2*t2-t1;
-        t1 = tt;
-        findDt(x,y,t1,t2,vF0,vSel,tr);
-        return;
-    }
-    else {
-        tt = (t1+t2)/2;
-        getFlowFromVecs(x,y,tt,vx,vy);
-        v1 = sqrt( vx*vx+vy*vy );
-        vDiff1 = fabs(v1-vF0);
-        if ( ( vDiff1 <= (1.1*p*vSel) ) && ( vDiff1 >= (0.9*p*vSel) ) ){
-            tr = tt;
-            return;
-        }
-        else if ( vDiff1 > p*vSel){
-            t1 = tt;
-            findDt(x,y,t1,t2,vF0,vSel,tr);
-            return;
-        }
-        else {
-            t2 = tt;
-            findDt(x,y,t1,t2,vF0,vSel,tr);
+    while ( fabs(vDiff1-p*vSel) >= 0.1*p*vSel ){
+        t2 = (t1==0)?0.0001:0.9999*t1;
+
+        dfdt = ( fabs( getFlowMag(x1,y1,t2) - vF0  ) - vDiff1 )/(t2-t1); 
+        if ( dfdt < 0.001 ){
+            tr = t1;
             return;
         }
 
+        t1 = t1 + ( p*vSel - vDiff1 )/dfdt;
+        vDiff1 = fabs( getFlowMag( x1, y1, t1 ) - vF0 );
+        
     }
+
+    tr = t1;
+    return;
 }
 
 ////---------------------------
 //// to_string for windows
 ////---------------------------
 //template <typename T>
-//std::string to_string(T value)
+//string to_string(T value)
 //{
-//	std::ostringstream os ;
+//	ostringstream os ;
 //	os << value ;
 //	return os.str() ;
 //}
 
-/*
-******************************
-* Unused Functions
-******************************
-
-//================================================
-// function to get number of neighbors considered
-//================================================
-
-int getNumNeighbs(){
-    int gridPtr = -1;
-    for (int i=0; i<=2*nDivs ; i++){
-        for (int j=0; j<=( 2*nDivs - abs(i-nDivs) ); j++){
-            gridPtr++;
-        }
-    }
-    return gridPtr;
-}
-//=============================================
-// Recursive Function to compute costs
-//=============================================
-
-void recursiveComputeNeighb(int k, double xSt, double ySt, double tSt, double xGl, double yGl, double Est, double dt, int Nt, double delV, vector<double> &E, vector<bool> &reachable, double &dtStatic){
-    if ( ( k ) && ( k>Nt ) ){ // return if the k (level iterator) > Nt (max number of levels)
-        //cout << "exit condition 1 reached" << endl;
-        return;
-    }
-
-    // get flow velocities
-    double vX, vY;
-    getDGFlow(xSt,ySt,tSt,vX,vY);
-
-    double vF = sqrt( vX*vX + vY*vY );
-    double thF = atan2(vY,vX);                // flow direction
-    double thHdg = atan2( yGl-ySt, xGl-xSt ); // heading direction
-
-    double th = thHdg - thF;                  // heading relative to the flow
-
-    // compute min/max speeds and transition times
-    double vMinReq, vMin, vMax, vK;
-    double dtMin, dtMax;
-    double delX = sqrt( (yGl-ySt)*(yGl-ySt) + (xGl-xSt)*(xGl-xSt)  );
-    if (fabs(th)<=M_PI/2){
-        vMinReq = vF*sin( fabs(th) );
-        vMin = max( 0.0  , vF*cos(th) - sqrt(Vm*Vm - vF*vF*sin(th)*sin(th) )  );
-    }
-    else{
-        vMinReq = vF;
-        vMin = 0.0;
-    }
-
-    if (vMinReq>Vm){       // if minimum required velocity is greater than the max vehicle speed
-        //cout << "exit condition 2 reached" << endl;
-        return;           // exit function
-    }
-
-    vMax = vF*cos(th) + sqrt( Vm*Vm - vF*vF*sin(th)*sin(th) );
-
-    dtMax = delX/vMin;
-    dtMin = delX/vMax;
-
-    if (dtMax < dt){       // if the required direction cannot be reached within dt
-        //cout << "exit condition 3 reached" << endl;
-        if (!k){
-            double dtStaticT = sqrt( k2*(delX)/( k1+k2*vF*vF ) );
-            dtStatic = dtStaticT;
-            if (dtStaticT>dtMax)
-                dtStatic = dtMax;
-            if (dtStaticT<dtMin)
-                dtStatic = dtMin;
-
-            double vStatic = sqrt( ( delX/dtStatic-vF*cos(th) )*( delX/dtStatic-vF*cos(th) ) + vF*sin(th)*vF*sin(th) );
-            double cost = Est + (k1 + k2*pow(vStatic,alpha))*dtStatic/tConvRat;
-
-            reachable.push_back(true);
-            E.push_back(cost);
-        }
-        return;           // exit function
-    }
-
-    if (dtMin < dt) {
-        double vNet = delX/dt;
-        vK = sqrt( ( vNet-vF*cos(th) )*( vNet-vF*cos(th) ) + vF*sin(th)*vF*sin(th) );
-        double cost = Est + (k1 + k2*pow(vK,alpha))*dt/tConvRat;
-
-        if ( reachable.size() < (k+1) ){  // resize the cost and reachable vectors to hold upto k+1 vals
-            reachable.resize(k+1);
-            E.resize(k+1);
-            reachable[k] = false;
-        }
-        if ( !reachable[k] )        // if the current node has not been reached before
-            E[k] = cost;
-        if ( E[k]>cost )           // if the current cost is less than the previous cost
-            E[k] = cost;
-        reachable[k] = true;
-        vMax = vNet;
-    }
-    else{
-        if (vMax*dt <= delX/5)
-            return;
-    }
-
-    if (!k){                    // if this is the initial iteration, set Nt and delV
-        if (dtMin<=dt)
-            delV = (vMax-vMin)/nV;
-        else
-            delV = (vMax-vMin)/2;
-
-        if ( isinf(dtMax) )
-            Nt = NtMax;
-        else
-            Nt = min( (int)(dtMax/dt), NtMax );
-    }
-    double vi = (vMin>0)?vMin:delV;     // in vMin=0, set vStart = delV
-    while(vi <= vMax){
-        double xInt = xSt + vi*cos(thHdg)*dt;
-        double yInt = ySt + vi*sin(thHdg)*dt;
-        double tInt = tSt + dt;
-
-        vK = sqrt( ( vi-vF*cos(th) )*( vi-vF*cos(th) ) + vF*sin(th)*vF*sin(th) );
-        double EInt = Est + (k1 + k2*pow(vK,alpha))*dt/tConvRat;
-
-        recursiveComputeNeighb(k+1,  xInt,  yInt,  tInt,  xGl,  yGl,  EInt, dt, Nt,  delV,  E, reachable, dtStatic);
-        vi = vi + delV;
-    }
-    //cout << "exit condition 4 reached" << endl;
-    return;
-
-}
-*/
 #endif
