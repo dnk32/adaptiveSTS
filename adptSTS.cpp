@@ -13,7 +13,7 @@ using namespace Eigen;
 //===========================
 // defines for the project
 //===========================
-#define dxType 2 // if dxType = 1 dxAllowed and dtAllowed computed together
+#define dxType 1 // if dxType = 1 dxAllowed and dtAllowed computed together
                  // if dxType = 2 dxAllowed and dtAllowed computed seperately
 
 //========================================
@@ -415,7 +415,7 @@ int main(){
                nx = currNodePtr->x + ( vx + grid[a][0] )*dT;     // select x and y positions of the neighb
                ny = currNodePtr->y + ( vy + grid[a][1] )*dT;
 
-               if(!isAccessible(nx,ny,nt))             // ignore this node if this is not accessible
+               if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
                    continue;
 
                cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT

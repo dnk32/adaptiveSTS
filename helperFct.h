@@ -348,6 +348,17 @@ void findDt(double x1, double y1, double t1, double vF0, double vSel, double &tr
     return;
 }
 
+//==========================================
+// Function to determine node admissibility
+//==========================================
+
+bool isReachable(double x, double y, double t){
+    double dt = sqrt( (GOAL_COORD[0]-x)*(GOAL_COORD[0]-x) + (GOAL_COORD[1]-y)*(GOAL_COORD[1]-y) )/( Vfm + Vm);
+    if ( (t+dt)<tmax )
+        return true;
+    else
+        return false;
+}
 ////---------------------------
 //// to_string for windows
 ////---------------------------
