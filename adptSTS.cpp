@@ -3,8 +3,8 @@
 #include <vector>
 #include <math.h>
 #include <Eigen/Dense>  //including Eigen library for matrix manipulation
-#include <time.h>
 #include <gsl/gsl_spline.h>
+#include <chrono>
 
 #include "classDefs.h"
 using namespace std;
@@ -227,7 +227,7 @@ int main(){
 
     bool gFound = false;                // indicator if goal is found
 
-    clock_t stTime, endTime, stSearch, endSearch;
+    clock_t stSearch, endSearch;
     double searchTime;
 
 #if dxType==1   // considers 3D hermV to compute dxAllowed, dtAllowed
@@ -269,7 +269,7 @@ int main(){
         nDivs = nDivsAll[pthNum];
 
         // reset all counters
-        stTime = clock();
+        auto stTime = chrono::high_resolution_clock::now();
         nExpandedNodes = 0;
         searchTime = 0;
 
@@ -544,13 +544,14 @@ int main(){
             thisPathProgress << "NO PATH TO TARGET NODE FOUND!!!!!!" << endl;
         }
 
-        endTime = clock();
-        cout << "Running Time : " << double(endTime - stTime)/CLOCKS_PER_SEC << endl;
-        outfProgress << "Running Time : " << double(endTime - stTime)/CLOCKS_PER_SEC << endl;
+        auto endTime = chrono::high_resolution_clock::now();
+        double runTime = chrono::duration_cast< chrono::duration<double> > (endTime-stTime).count();
+        cout << "Running Time : " << runTime << "s" << endl;
+        outfProgress << "Running Time : " << runTime << "s" << endl;
         outfProgress << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << endl;
         outfProgress << endl;
 
-        thisPathProgress << "Running Time : " << double(endTime - stTime)/CLOCKS_PER_SEC << endl;
+        thisPathProgress << "Running Time : " << runTime << "s"  << endl;
 
         /* delete Graph and Nodes it points to
         -------------------------------------*/
