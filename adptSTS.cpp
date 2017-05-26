@@ -5,6 +5,8 @@
 #include <Eigen/Dense>  //including Eigen library for matrix manipulation
 #include <gsl/gsl_spline.h>
 #include <chrono>
+#include <thread>
+#include <mutex>
 
 #include "classDefs.h"
 using namespace std;
@@ -13,7 +15,7 @@ using namespace Eigen;
 //===========================
 // defines for the project
 //===========================
-#define dxType 1 // if dxType = 1 dxAllowed and dtAllowed computed together
+#define dxType 2 // if dxType = 1 dxAllowed and dtAllowed computed together
                  // if dxType = 2 dxAllowed and dtAllowed computed seperately
 
 //========================================
@@ -167,11 +169,79 @@ int GOAL_COORD[2] = {endx, endy};
 // the helperFct.h file contains the funcitons required by the algorithm.
 // The file is inluded at this point because the fucntions use the variables defined above.
 
+//===========================
+// Add Neighbors
+//===========================
+
+void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd){//, mutex *heapGuard, vector<mutex> *graphGuard){
+
+    for (int a=nSt; a<nEnd ; a++){
+       int nx = currNodePtr->x + ( vx + grid[a][0] )*dT;     // select x and y positions of the neighb
+       int ny = currNodePtr->y + ( vy + grid[a][1] )*dT;
+    
+       if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
+           continue;
+    
+       double cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT
+       int hashBin = getHashBinNumber(nx,ny,nt);
+    
+       /*find the node in the graph*/
+       graphNode *neighbNode = NULL;
+       
+       //stSearch = clock();
+       {
+           //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
+           for(int i=0; i<(*Graph)[hashBin].size(); i++){
+               if( (*Graph)[hashBin][i]->t == nt ){     // proceed if the nodes have the same time cordinate
+                   double nDist = sqrt( (double)( (*Graph)[hashBin][i]->x - nx )*(double)( (*Graph)[hashBin][i]->x - nx ) + (double)( (*Graph)[hashBin][i]->y - ny )*(double)( (*Graph)[hashBin][i]->y - ny ) );
+                   if ( nDist < xEps ){
+                       neighbNode = (*Graph)[hashBin][i];
+                       break;
+                   }
+               }
+           }
+       }
+       //endSearch = clock();
+       //searchTime = searchTime + (double)( endSearch - stSearch )/CLOCKS_PER_SEC;
+    
+       //if neighbor is not in the graph, add it
+       if(!neighbNode){
+           double heuristic = getHeuristic(nx,ny);
+           neighbNode = new graphNode(nx, ny, nt,currNodePtr->g + cost,heuristic,currNodePtr,0);
+           {
+                //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
+                (*Graph)[hashBin].push_back(neighbNode);   // add this neighbor to graph
+           }
+           {
+               //lock_guard<mutex> heapLock(*heapGuard);
+               heap->pushNode(neighbNode);              // add node to heap
+           }
+           continue;                               // go to next neighbor
+       }
+    
+       // if Neighbor is not expanded already
+       {
+           //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
+           if(!neighbNode->expanded){
+               if(neighbNode->g > (currNodePtr->g + cost)){    // if current cost to come to node is higher
+                   neighbNode->g = (currNodePtr->g + cost);
+                   neighbNode->f = neighbNode->g + neighbNode->h;
+                   neighbNode->parent = currNodePtr;
+                   {
+                       //lock_guard<mutex> heapLock(*heapGuard);
+                       heap->update(neighbNode->heapPos);
+                   }
+               }
+           }
+       }
+    } // end of looking through neighbors in the grid for a given node currNode
+}
 
 //===========================
 // Main Code
 //===========================
 int main(){
+
     /* Read data files containing velocity information
      * ------------------------------------------------*/
     vXVec = readDataToVecs("../U.txt", nX, nY, nT);
@@ -275,7 +345,7 @@ int main(){
         /* Neighbor Grid setup
         -----------------------*/
         const int N = ( nDivs + 1 )*( 3*nDivs + 2 ) - ( 2*nDivs + 1 );    // total number of nodes in the hexagonal lattice
-        double grid[N][2];              // velcoities of intermediate grid positions
+        double  grid[N][2];              // velcoities of intermediate grid positions
         double pCost[N];                // cost to reach each intermediate point (pre computed)
         int gridPtr = -1;
         for (int i=0; i<=2*nDivs ; i++){
@@ -307,6 +377,11 @@ int main(){
         /* create new heap container
         -------------------------------*/
         Heap heap;                                          // new empty heap
+
+        /* Mutexes for guarding heap and graph
+         *-------------------------------------*/
+        mutex heapGuard;
+        vector<mutex> graphGuard(nHashBins);
 
         /*Add seed node to graph and heap
         ----------------------------------*/
@@ -409,52 +484,10 @@ int main(){
             dTmean = ( dTmean*(nExpandedNodes-1) + dT )/nExpandedNodes;
             // compute temporal coordinate, its the same for all neighbors
             nt = currNodePtr->t + dT;
-            for (int a=0; a<N ; a++){
-               nx = currNodePtr->x + ( vx + grid[a][0] )*dT;     // select x and y positions of the neighb
-               ny = currNodePtr->y + ( vy + grid[a][1] )*dT;
 
-               if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
-                   continue;
-
-               cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT
-               hashBin = getHashBinNumber(nx,ny,nt);
-
-               /*find the node in the graph*/
-               neighbNode = NULL;
-               stSearch = clock();
-               for(int i=0; i<Graph[hashBin].size(); i++){
-                   if(Graph[hashBin][i]->t == nt){     // proceed if the nodes have the same time cordinate
-                       nDist = sqrt( (double)( Graph[hashBin][i]->x - nx )*(double)( Graph[hashBin][i]->x - nx ) + (double)( Graph[hashBin][i]->y - ny )*(double)( Graph[hashBin][i]->y - ny ) );
-                       if ( nDist < xEps ){
-//                       if(Graph[hashBin][i]->x == nx && Graph[hashBin][i]->y == ny){
-                           neighbNode = Graph[hashBin][i];
-                           break;
-                       }
-                   }
-               }
-               endSearch = clock();
-               searchTime = searchTime + (double)( endSearch - stSearch )/CLOCKS_PER_SEC;
-
-               //if neighbor is not in the graph, add it
-               if(!neighbNode){
-                   heuristic = getHeuristic(nx,ny);
-                   neighbNode = new graphNode(nx, ny, nt,currNodePtr->g + cost,heuristic,currNodePtr,0);
-                   Graph[hashBin].push_back(neighbNode);   // add this neighbor to graph
-                   heap.pushNode(neighbNode);              // add node to heap
-                   continue;                               // go to next neighbor
-               }
-
-               // if Neighbor is not expanded already
-               if(!neighbNode->expanded){
-                   if(neighbNode->g > (currNodePtr->g + cost)){    // if current cost to come to node is higher
-                       neighbNode->g = (currNodePtr->g + cost);
-                       neighbNode->f = neighbNode->g + neighbNode->h;
-                       neighbNode->parent = currNodePtr;
-                       heap.update(neighbNode->heapPos);
-                   }
-               }
-            } // end of looking through neighbors in the grid for a given node currNode
-
+            /* add parallelization here
+             *-------------------------- */
+            addNeighbors(&heap, &Graph, currNodePtr, vx, vy, grid, pCost, nt, dT, xEps, 0, N);//, &heapGuard, &graphGuard);
 
             if(!(nExpandedNodes%10000)){
                 cout << "Number of Nodes expanded : " << nExpandedNodes << ". Number of Nodes in the Heap : " << heap.heapSize << endl;
