@@ -53,13 +53,13 @@ vector< vector< vector< double > > > OBS;
 //int tmax = 250000;
 //int tmin = 0;
 
-//// limits used for xSt = [20,50], xGl = [25,45];
-//int xmax = 28000;
-//int xmin = 14000;
-//int ymax = 52000;
-//int ymin = 43000;
-//int tmax = 100000;
-//int tmin = 0;
+// limits used for xSt = [20,50], xGl = [25,45];
+int xmax = 28000;
+int xmin = 14000;
+int ymax = 52000;
+int ymin = 43000;
+int tmax = 100000;
+int tmin = 0;
 
 //// limits used for xSt = [20,50], xGl = [25,45];
 //int xmax = 22500;
@@ -69,13 +69,13 @@ vector< vector< vector< double > > > OBS;
 //int tmax = 79000;
 //int tmin = 0;
 
-// limits used for xSt = [20,50], xGl = [50,40];
-int xmax = 52000;
-int xmin = 14000;
-int ymax = 52000;
-int ymin = 30000;
-int tmax = 185000;
-int tmin = 0;
+//// limits used for xSt = [20,50], xGl = [50,40];
+//int xmax = 52000;
+//int xmin = 14000;
+//int ymax = 52000;
+//int ymin = 30000;
+//int tmax = 185000;
+//int tmin = 0;
 
 //===========================
 // Algorithm parameters
@@ -86,10 +86,6 @@ double Vfm = 0.7288;  // m/s or mm/ms
 
 //max vehicle speed allowed
 double Vm = 0.5; // m/s or mm/ms
-
-// maximum discretization levels
-double dxMax = 10000;
-double dtMax = 2000;
 
 // discrete time layers considered
 int dTLayer = 200;              // all time dimensions will be  multiples of dTlayer.
@@ -157,8 +153,8 @@ int hashBinSize = 200;
 int startx = 20000;
 int starty = 50000;
 int startt = 0;
-int endx = 50000;
-int endy = 40000;
+int endx = 25000;
+int endy = 45000;
 
 int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
 int GOAL_COORD[2] = {endx, endy};
@@ -256,7 +252,7 @@ int main(){
     double maxXeps = 0.0;
     int ndTExceeds;
     int dtAllLessdT = 0;
-    int dTmin = dtMax;
+    int dTmin = 1000;
     int dTmax = 0;
     double dTmean = 0;
     double vFmean = 0; double vFmin = Vfm; double vFmax = 0;
@@ -298,11 +294,13 @@ int main(){
         ndTExceeds = 0;
         /* create graph container
         --------------------------*/
-        vector<graphNode*>* Graph = new vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
+        vector< vector<graphNode*> > Graph(nHashBins); // create an empty graph with the specified number of hashbins
+        //vector<graphNode*>* Graph = new vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
         //std::vector<graphNode*>* Graph = new std::vector<graphNode*>[nHashBins]; // create an empty graph with the specified number of hashbins
 
         for(int i=0; i<nHashBins; i++)
         {
+            Graph[i].clear();
             Graph[i].reserve(hashBinSize);                // allocate enough capacity to each hashBin
         }
 
@@ -565,7 +563,7 @@ int main(){
             for(int j=0; j<Graph[i].size(); j++)
                 delete Graph[i][j];                // delete the Node pointed to by the graph
         }
-        delete[] Graph;
+        //delete[] Graph;
         cout << "max hash bin size = " << maxHashSize << endl;
         cout << "min hash bin size = " << minHashSize << endl;
         cout << "mean hash bin size = " << (double)meanHashSize/nHashBins << endl;
