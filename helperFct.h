@@ -59,7 +59,18 @@ double getInterpVal(double lx, double ly, double lt, double val000, double val10
     return lt*( intVal1-intVal0) + intVal0;
 }
 
-// interpolate flow velocity using the available data
+//=======================================
+// Bi-Linear Interpolation function
+//=======================================
+double getInterpVal(double lx, double ly, double val00, double val10, double val01, double val11){
+    double intVal0 = lx*( val10 - val00 ) + val00;
+    double intVal1 = lx*( val11 - val01 ) + val01;
+    return ly*( intVal1 - intVal0 ) + intVal0;
+}
+
+//=====================================================
+// Functions to interpolate data from the vectors
+//===================================================== 
 void getFlowFromVecs(double x,double y,double t,double &vx,double &vy)
 {
     /* Inputs
@@ -347,6 +358,7 @@ void findDt(double x1, double y1, double t1, double vF0, double vSel, double &tr
     tr = t1;
     return;
 }
+
 
 //==========================================
 // Function to determine node admissibility

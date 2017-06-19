@@ -9,6 +9,8 @@
 #include <mutex>
 
 #include "classDefs.h"
+#include "latestDepSearch.hpp"
+
 using namespace std;
 using namespace Eigen;
 
@@ -161,13 +163,81 @@ int endy = 45000;
 int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
 int GOAL_COORD[2] = {endx, endy};
 
- 
 //===========================
 // Include helper functions
 //===========================
 #include "helperFct.h"
 // the helperFct.h file contains the funcitons required by the algorithm.
 // The file is inluded at this point because the fucntions use the variables defined above.
+
+
+//========================================================================
+// Parameters to be used with latest departure time search
+//========================================================================
+// Use same environment boundaries, same start and end coordinates, same 
+// velocity and obstacle vectors, same vehicle constraints.
+// New definitions required for spatial and temporal discretization levels,
+// number of grid points and hashbin function.
+
+
+// hash function to use with latest departure time search
+//**********************************************************************
+int getHashBinNumberOptT(int x, int y, double t, bool isVmSmall, int nXT, int nYT, int hashBinHeight){
+    if (isVmSmall)
+        return (int) ( (x)*nYT + y + nXT*nYT*( (int)t/hashBinHeight ) ); 
+    else
+        return (int) (x*nYT + y);
+}
+
+// function to compute latest departure time for nodes in a grid
+//***************************************************************
+
+vector <double>  getDepTimeVect(double xSpGT, double ySpGT, double tSpGT){
+    
+    // grid spacings
+    double xSpGridOptT = xSpGT; 
+    double ySpGridOptT = ySpGT; 
+    double tSpGridOptT = tSpGT; 
+
+    // number of discrete points in grid
+    int nXOptT = (int) floor( ( xmax - xmin )/xSpGridOptT + 1 );
+    int nYOptT = (int) floor( ( ymax - ymin )/ySpGridOptT + 1 );
+
+    // maximum vehicle and flow velocities
+    bool isVmSmall = (Vm<=Vfm);
+    
+
+    // Hashbin data
+    int nHashBinsOptT;
+    int hashBinHeight = tSpGridOptT*10;
+    if (isVmSmall)
+        nHashBinsOptT = nXOptT*nYOptT*( (int)tmax/hashBinHeight + 1);         
+    else
+        nHashBinsOptT = nXOptT*nYOptT;          
+
+    // vector for latest departure time data
+    vector <double> depTimeVec;
+
+    // create latest departure time object and populate parameters
+    latestDepSearch dptTimeSearch;
+    dptTimeSearch.setEnvLims(xmax,xmin, ymax, ymin, tmax, tmin);
+    dptTimeSearch.setGridParams(xSpGridOptT, ySpGridOptT, tSpGridOptT, nXOptT, nYOptT);
+    dptTimeSearch.setHashBinParams(nHashBinsOptT, hashBinHeight, &getHashBinNumberOptT);
+    dptTimeSearch.setDataVecs(xSpData, ySpData, tSpData, nX, nY, nT, &vXVec, &vYVec, &OBS);
+    dptTimeSearch.setVelParams(Vm, Vfm);
+    dptTimeSearch.setStartCoords(endx, endy);
+    dptTimeSearch.runSearch( &depTimeVec );
+    
+    return depTimeVec;
+}
+
+
+// function to compute latest departure time from a given coordinate
+//*******************************************************************
+
+double getLatestDepTime(int nx, int ny, int nt, vector<double> *depTimeVec){
+    
+}
 
 //===========================
 // Add Neighbors

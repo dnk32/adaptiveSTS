@@ -1,6 +1,7 @@
 #ifndef CLASSDEFS_H_INCLUDED
 #define CLASSDEFS_H_INCLUDED
 
+#include <gsl/gsl_spline.h>
 
 //===================
 // Class graphNode
