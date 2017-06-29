@@ -57,13 +57,13 @@ vector< vector< vector< double > > > OBS;
 //int tmax = 250000;
 //int tmin = 0;
 
-// limits used for xSt = [20,50], xGl = [25,45];
-int xmax = 28000;
-int xmin = 14000;
-int ymax = 52000;
-int ymin = 43000;
-int tmax = 100000;
-int tmin = 0;
+//// limits used for xSt = [20,50], xGl = [25,45];
+//int xmax = 28000;
+//int xmin = 14000;
+//int ymax = 52000;
+//int ymin = 43000;
+//int tmax = 100000;
+//int tmin = 0;
 
 //// limits used for xSt = [20,50], xGl = [25,45];
 //int xmax = 22500;
@@ -73,13 +73,13 @@ int tmin = 0;
 //int tmax = 79000;
 //int tmin = 0;
 
-//// limits used for xSt = [20,50], xGl = [50,40];
-//int xmax = 52000;
-//int xmin = 14000;
-//int ymax = 52000;
-//int ymin = 30000;
-//int tmax = 185000;
-//int tmin = 0;
+// limits used for xSt = [20,50], xGl = [50,40];
+int xmax = 52000;
+int xmin = 14000;
+int ymax = 52000;
+int ymin = 30000;
+int tmax = 185000;
+int tmin = 0;
 
 //===========================
 // Algorithm parameters
@@ -130,14 +130,14 @@ double vMinH = (Vm<vMinCost)? Vm:vMinCost;       // select the smaller of vMinCo
  * *****************************/
 
 // the dimensions of each hashbin
-int dxBin = 250;
-int dyBin = 250;
-int dtBin = 500;
+int dxBin = xEpsMin*5;//250;
+int dyBin = xEpsMin*5;//250;
+int dtBin = dTLayer*5;//500;
 
 // number of hashBins along each axis
 int nXBins = 100;
 int nYBins = 100;
-int nTBins = 20;
+int nTBins = 40;
 
 // size of the complete hashBin
 int xSpBin = nXBins*dxBin;
@@ -157,8 +157,8 @@ int hashBinSize = 200;
 int startx = 20000;
 int starty = 50000;
 int startt = 0;
-int endx = 25000;
-int endy = 45000;
+int endx = 50000;
+int endy = 40000;
 
 int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
 int GOAL_COORD[2] = {endx, endy};
@@ -179,6 +179,8 @@ int GOAL_COORD[2] = {endx, endy};
 // New definitions required for spatial and temporal discretization levels,
 // number of grid points and hashbin function.
 
+    // number of points in the optimal time search grid
+    int nXOptT, nYOptT;
 
 // hash function to use with latest departure time search
 //**********************************************************************
@@ -191,7 +193,6 @@ int getHashBinNumberOptT(int x, int y, double t, bool isVmSmall, int nXT, int nY
 
 // function to compute latest departure time for nodes in a grid
 //***************************************************************
-
 vector <double>  getDepTimeVect(double xSpGT, double ySpGT, double tSpGT){
     
     // grid spacings
@@ -200,8 +201,8 @@ vector <double>  getDepTimeVect(double xSpGT, double ySpGT, double tSpGT){
     double tSpGridOptT = tSpGT; 
 
     // number of discrete points in grid
-    int nXOptT = (int) floor( ( xmax - xmin )/xSpGridOptT + 1 );
-    int nYOptT = (int) floor( ( ymax - ymin )/ySpGridOptT + 1 );
+    nXOptT = (int) floor( ( xmax - xmin )/xSpGridOptT + 1 );
+    nYOptT = (int) floor( ( ymax - ymin )/ySpGridOptT + 1 );
 
     // maximum vehicle and flow velocities
     bool isVmSmall = (Vm<=Vfm);
@@ -235,22 +236,40 @@ vector <double>  getDepTimeVect(double xSpGT, double ySpGT, double tSpGT){
 // function to compute latest departure time from a given coordinate
 //*******************************************************************
 
-double getLatestDepTime(int nx, int ny, int nt, vector<double> *depTimeVec){
-    
+double getLatestDepTime(int nx, int ny, vector<double> *depTimeVec, double xSpGT, double ySpGT ){
+    int xCoord = (nx-xmin)/xSpGT;
+    int yCoord = (ny-ymin)/ySpGT;
+
+    double dx = (nx - xCoord*xSpGT)/xSpGT;
+    double dy = (ny - yCoord*ySpGT)/ySpGT;
+
+    int hB00 = getHashBinNumberOptT(xCoord, yCoord, 0, false, nXOptT, nYOptT, 0); 
+    int hB10 = getHashBinNumberOptT(xCoord+1, yCoord, 0, false, nXOptT, nYOptT, 0); 
+    int hB01 = getHashBinNumberOptT(xCoord, yCoord+1, 0, false, nXOptT, nYOptT, 0); 
+    int hB11 = getHashBinNumberOptT(xCoord+1, yCoord+1, 0, false, nXOptT, nYOptT, 0); 
+
+    return getInterpVal(dx, dy, (*depTimeVec)[hB00], (*depTimeVec)[hB10], (*depTimeVec)[hB01], (*depTimeVec)[hB11]);    
 }
 
 //===========================
 // Add Neighbors
 //===========================
 
-void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd){//, mutex *heapGuard, vector<mutex> *graphGuard){
+void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd, double xSpGT, double ySpGT, vector <double> *depTimeVector, int *nExcdDepTime){//, mutex *heapGuard, vector<mutex> *graphGuard){
 
     for (int a=nSt; a<nEnd ; a++){
        int nx = currNodePtr->x + ( vx + grid[a][0] )*dT;     // select x and y positions of the neighb
        int ny = currNodePtr->y + ( vy + grid[a][1] )*dT;
     
-       if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
+       if( !isAccessible(nx,ny,nt) )             // ignore this node if this is not accessible
            continue;
+       
+       if ( nt > getLatestDepTime(nx, ny, depTimeVector, xSpGT, ySpGT) ){ // ignore if the time at node is more than the latest time of departure
+           (*nExcdDepTime)++;
+           continue; 
+       }
+       //if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
+       //    continue;
     
        double cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT
        int hashBin = getHashBinNumber(nx,ny,nt);
@@ -320,7 +339,7 @@ int main(){
     /* Read in obstacle data
      * -------------------------*/
     OBS = readDataToVecs("../obstacles.txt", nX, nY, 1);
-
+    
     /* Open files to save result
     ----------------------------*/
     ofstream outfProgress;                          // open file to save path parameters
@@ -333,6 +352,21 @@ int main(){
     refPath.readPathFromFile("../refPath2.txt");       // read the optimalpath into file
     refPath.createInterpolant();                    // create interpolants using the data
 
+    /* obtain latest departure time for coordinates on the grid
+    -------------------------------------------------------------*/
+        clock_t depSearchSt = clock();
+        
+        cout << "Computing latest time of departure..." << endl;
+        vector <double> depTimeVec;
+        double xSpGridOptT = 200;
+        double ySpGridOptT = 200;
+        double tSpGridOptT = 200;
+    
+        depTimeVec = getDepTimeVect(xSpGridOptT, ySpGridOptT, tSpGridOptT);
+        cout << "Computing latest departure times complete." << endl;
+    
+        double depSearchTime = ( clock() - depSearchSt )/CLOCKS_PER_SEC;
+        cout << "time for latest departure time search " << depSearchTime << endl;
     /* general variable definitions
     ---------------------------------*/
     int nExpandedNodes;                 // number of Nodes expanded so far
@@ -396,6 +430,7 @@ int main(){
     int dTmax = 0;
     double dTmean = 0;
     double vFmean = 0; double vFmin = Vfm; double vFmax = 0;
+    int nExcdDepTime = 0;
     ofstream tempOut;
     /* Run the graph search for each set of search parameters
      * -------------------------------------------------------*/
@@ -406,6 +441,7 @@ int main(){
 
         // reset all counters
         auto stTime = chrono::high_resolution_clock::now();
+        clock_t searchStTime = clock();
         nExpandedNodes = 0;
         searchTime = 0;
 
@@ -557,7 +593,7 @@ int main(){
 
             /* add parallelization here
              *-------------------------- */
-            addNeighbors(&heap, &Graph, currNodePtr, vx, vy, grid, pCost, nt, dT, xEps, 0, N);//, &heapGuard, &graphGuard);
+            addNeighbors(&heap, &Graph, currNodePtr, vx, vy, grid, pCost, nt, dT, xEps, 0, N, xSpGridOptT, ySpGridOptT, &depTimeVec, &nExcdDepTime);//, &heapGuard, &graphGuard);
 
             if(!(nExpandedNodes%10000)){
                 cout << "Number of Nodes expanded : " << nExpandedNodes << ". Number of Nodes in the Heap : " << heap.heapSize << endl;
@@ -644,10 +680,12 @@ int main(){
             outfProgress << "NO PATH TO TARGET NODE FOUND!!!!!!" << endl;
             thisPathProgress << "NO PATH TO TARGET NODE FOUND!!!!!!" << endl;
         }
-
+        clock_t searchEndTime = clock();
         auto endTime = chrono::high_resolution_clock::now();
-        double runTime = chrono::duration_cast< chrono::duration<double> > (endTime-stTime).count();
-        cout << "Running Time : " << runTime << "s" << endl;
+        //double runTime = chrono::duration_cast< chrono::duration<double> > (endTime-stTime).count();
+        double runTime = (searchEndTime - searchStTime )/CLOCKS_PER_SEC;
+        cout << "Search running Time : " << runTime << "s" << endl;
+        cout << "Total run time with latest departure search " << runTime+depSearchTime << endl;
         outfProgress << "Running Time : " << runTime << "s" << endl;
         outfProgress << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << endl;
         outfProgress << endl;
@@ -672,6 +710,8 @@ int main(){
         cout << "mean hash bin size = " << (double)meanHashSize/nHashBins << endl;
         cout << endl;
         cout << "mean search time for a node in Graph : " << searchTime/nExpandedNodes << endl;
+        cout << endl;
+        cout << "number of neighbors that exceeded the latest departure time " << nExcdDepTime << endl;
         cout << "%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%" << endl;
         outf.close();
         thisPathProgress.close();
