@@ -264,10 +264,11 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
        if( !isAccessible(nx,ny,nt) )             // ignore this node if this is not accessible
            continue;
        
-       if ( nt > getLatestDepTime(nx, ny, depTimeVector, xSpGT, ySpGT) ){ // ignore if the time at node is more than the latest time of departure
-           (*nExcdDepTime)++;
-           continue; 
-       }
+       //if ( nt > getLatestDepTime(nx, ny, depTimeVector, xSpGT, ySpGT) ){ // ignore if the time at node is more than the latest time of departure
+       //    (*nExcdDepTime)++;
+       //    continue; 
+       //}
+       
        //if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
        //    continue;
     
@@ -502,8 +503,6 @@ int main(){
         -------------------------*/
         while (!heap.isHeapEmpty()){       // repeat while the heap is not empty
             currNodePtr = heap.popNode();               // pop the node at the root of heap
-            currNodePtr->expanded = true;               // node is expanded
-            nExpandedNodes++;
 
             // check if current node is the goal location
             nDist = sqrt( (double)( currNodePtr->x-GOAL_COORD[0] )*( currNodePtr->x-GOAL_COORD[0] ) + (double)( currNodePtr->y - GOAL_COORD[1] )*( currNodePtr->y - GOAL_COORD[1] ) );
@@ -512,6 +511,14 @@ int main(){
                 break;
             }
 
+            if ( currNodePtr->t > getLatestDepTime(currNodePtr->x, currNodePtr->y, &depTimeVec, xSpGridOptT, ySpGridOptT) ){ // ignore if the time at node is more than the latest time of departure
+                nExcdDepTime++;
+                continue; 
+            }
+
+            currNodePtr->expanded = true;               // node is expanded
+            nExpandedNodes++;
+            
             // if not goal, proceed
             getFlowFromVecs(currNodePtr->x,currNodePtr->y,currNodePtr->t,vx,vy, dvXdx, dvXdy, dvYdx, dvYdy, dvXdt, dvYdt);   // get the flow at current node
             thFlow = atan2(vy,vx);                                                  // direction of the flow
