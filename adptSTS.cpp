@@ -130,14 +130,14 @@ double vMinH = (Vm<vMinCost)? Vm:vMinCost;       // select the smaller of vMinCo
  * *****************************/
 
 // the dimensions of each hashbin
-int dxBin = xEpsMin*5;//250;
-int dyBin = xEpsMin*5;//250;
-int dtBin = dTLayer*5;//500;
+int dxBin = xEpsMin*8;//250;
+int dyBin = xEpsMin*8;//250;
+int dtBin = dTLayer*3;//500;
 
 // number of hashBins along each axis
 int nXBins = 100;
 int nYBins = 100;
-int nTBins = 40;
+int nTBins = (tmax-tmin)/dtBin;//40;
 
 // size of the complete hashBin
 int xSpBin = nXBins*dxBin;
@@ -149,6 +149,12 @@ int nHashBins = nXBins*nYBins*nTBins;
 
 // number of nodes in each hashbin
 int hashBinSize = 200;
+
+//========================
+// max path lengths
+//========================
+int maxPathLength = ceil( (tmax-tmin)/(double)dTLayer );
+int neighbPathLength = 0;
 
 //================================
 // start and end goal definitions
@@ -298,6 +304,7 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
        if(!neighbNode){
            double heuristic = getHeuristic(nx,ny);
            neighbNode = new graphNode(nx, ny, nt,currNodePtr->g + cost,heuristic,currNodePtr,0);
+           neighbNode->pathLength = neighbPathLength;
            {
                 //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
                 (*Graph)[hashBin].push_back(neighbNode);   // add this neighbor to graph
@@ -317,6 +324,7 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
                    neighbNode->g = (currNodePtr->g + cost);
                    neighbNode->f = neighbNode->g + neighbNode->h;
                    neighbNode->parent = currNodePtr;
+                   neighbNode->pathLength = neighbPathLength;
                    {
                        //lock_guard<mutex> heapLock(*heapGuard);
                        heap->update(neighbNode->heapPos);
@@ -433,6 +441,7 @@ int main(){
     double vFmean = 0; double vFmin = Vfm; double vFmax = 0;
     int nExcdDepTime = 0;
     ofstream tempOut;
+
     /* Run the graph search for each set of search parameters
      * -------------------------------------------------------*/
     for (int pthNum=0; pthNum<nTotRuns; pthNum++){
@@ -516,6 +525,9 @@ int main(){
                 continue; 
             }
 
+            if ( currNodePtr->pathLength > maxPathLength )   // ignore node if the path length is more than maximum allowable length
+                continue;
+
             currNodePtr->expanded = true;               // node is expanded
             nExpandedNodes++;
             
@@ -597,7 +609,7 @@ int main(){
             dTmean = ( dTmean*(nExpandedNodes-1) + dT )/nExpandedNodes;
             // compute temporal coordinate, its the same for all neighbors
             nt = currNodePtr->t + dT;
-
+            neighbPathLength = currNodePtr->pathLength + 1;
             /* add parallelization here
              *-------------------------- */
             addNeighbors(&heap, &Graph, currNodePtr, vx, vy, grid, pCost, nt, dT, xEps, 0, N, xSpGridOptT, ySpGridOptT, &depTimeVec, &nExcdDepTime);//, &heapGuard, &graphGuard);

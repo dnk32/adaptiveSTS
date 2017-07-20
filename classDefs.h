@@ -18,6 +18,7 @@ class graphNode{
     double timeAtNode; //time at node
     int heapPos;    // position of the node in the heap
     bool expanded;  // indicate if the node has been expanded
+    int pathLength; // length of path leading up to the node
 
     graphNode* parent;  //pointer to parent node
 
@@ -30,6 +31,7 @@ class graphNode{
         parent = parentNode;
         expanded = false;
         timeAtNode = time;
+        pathLength = 0;
     }
 };
 
