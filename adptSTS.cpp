@@ -130,8 +130,8 @@ double vMinH = (Vm<vMinCost)? Vm:vMinCost;       // select the smaller of vMinCo
  * *****************************/
 
 // the dimensions of each hashbin
-int dxBin = xEpsMin*8;//250;
-int dyBin = xEpsMin*8;//250;
+int dxBin = xEpsMin*5;//250;
+int dyBin = xEpsMin*5;//250;
 int dtBin = dTLayer*3;//500;
 
 // number of hashBins along each axis
@@ -168,6 +168,9 @@ int endy = 40000;
 
 int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
 int GOAL_COORD[2] = {endx, endy};
+
+// temp variable to delete
+int vMlarge = 0;
 
 //===========================
 // Include helper functions
@@ -270,15 +273,10 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
        if( !isAccessible(nx,ny,nt) )             // ignore this node if this is not accessible
            continue;
        
-       //if ( nt > getLatestDepTime(nx, ny, depTimeVector, xSpGT, ySpGT) ){ // ignore if the time at node is more than the latest time of departure
-       //    (*nExcdDepTime)++;
-       //    continue; 
-       //}
-       
        //if( (!isAccessible(nx,ny,nt)) || (!isReachable(nx,ny,nt)) )             // ignore this node if this is not accessible
        //    continue;
     
-       double cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT
+       //double cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT
        int hashBin = getHashBinNumber(nx,ny,nt);
     
        /*find the node in the graph*/
@@ -300,38 +298,40 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
        //endSearch = clock();
        //searchTime = searchTime + (double)( endSearch - stSearch )/CLOCKS_PER_SEC;
     
-       //if neighbor is not in the graph, add it
-       if(!neighbNode){
-           double heuristic = getHeuristic(nx,ny);
-           neighbNode = new graphNode(nx, ny, nt,currNodePtr->g + cost,heuristic,currNodePtr,0);
-           neighbNode->pathLength = neighbPathLength;
-           {
-                //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
-                (*Graph)[hashBin].push_back(neighbNode);   // add this neighbor to graph
-           }
-           {
-               //lock_guard<mutex> heapLock(*heapGuard);
-               heap->pushNode(neighbNode);              // add node to heap
-           }
-           continue;                               // go to next neighbor
-       }
-    
-       // if Neighbor is not expanded already
-       {
-           //lock_guard<mutex> graphLock( (*graphGuard)[hashBin] );
+       // if Neighbor is found
+       if(neighbNode){
+           // if neighbor is not expanded already
            if(!neighbNode->expanded){
-               if(neighbNode->g > (currNodePtr->g + cost)){    // if current cost to come to node is higher
-                   neighbNode->g = (currNodePtr->g + cost);
-                   neighbNode->f = neighbNode->g + neighbNode->h;
-                   neighbNode->parent = currNodePtr;
-                   neighbNode->pathLength = neighbPathLength;
-                   {
-                       //lock_guard<mutex> heapLock(*heapGuard);
+               double tempU = sqrt( pow( (neighbNode->x - currNodePtr->x)/(double)dT - vx, 2)+pow( (neighbNode->y - currNodePtr->y)/(double)dT - vy, 2) );
+               // proceed only is this node can be reached from current node
+               if (tempU <= (Vm*1.1)){
+                   double cost = ( k1 + k2*pow(tempU,alpha) )*dT;
+                   if(neighbNode->g > (currNodePtr->g + cost)){    // if current cost to come to node is higher
+                       neighbNode->g = (currNodePtr->g + cost);
+                       neighbNode->f = neighbNode->g + neighbNode->h;
+                       neighbNode->parent = currNodePtr;
+                       neighbNode->pathLength = neighbPathLength;
                        heap->update(neighbNode->heapPos);
                    }
                }
+               else{     // if this neighbor cannot be reached from current node, add original neighbor
+                   neighbNode = NULL;
+                   vMlarge++;
+               }
            }
        }
+    
+       //if neighbor is not in the graph, add it
+       if(!neighbNode){
+           double cost = pCost[a]*dT;          // cost = precomputed cost (for unit dT) * dT if an existing node has not been found
+           double heuristic = getHeuristic(nx,ny);
+           neighbNode = new graphNode(nx, ny, nt,currNodePtr->g + cost,heuristic,currNodePtr,0);
+           neighbNode->pathLength = neighbPathLength;
+           (*Graph)[hashBin].push_back(neighbNode);   // add this neighbor to graph
+           heap->pushNode(neighbNode);              // add node to heap
+           continue;                               // go to next neighbor
+       }
+    
     } // end of looking through neighbors in the grid for a given node currNode
 }
 
@@ -638,6 +638,8 @@ int main(){
                 tempOut << " vFmean   : " << vFmean << endl;
                 tempOut << " vFmax    : " << vFmax << endl;
                 tempOut << " vFmin    : " << vFmin << endl;
+                
+                tempOut << endl << " vmLarge  : " << vMlarge << endl;
                 tempOut << "***********************************************************************" << endl;
             }
         } // end of while loop searching through the Heap
@@ -649,12 +651,27 @@ int main(){
         outfProgress << "errThresh (p) : " << p << endl;
         outfProgress << "nExpanded     : " << nExpandedNodes << endl;
 
+        outfProgress << "dxBin         : " << dxBin << endl;
+        outfProgress << "dyBin         : " << dyBin << endl;
+        outfProgress << "dtBin         : " << dtBin << endl;
+
+        outfProgress << "nXBins        : " << nXBins << endl;
+        outfProgress << "nYBins        : " << nYBins << endl;
+        outfProgress << "nTBins        : " << nTBins << endl;
+        
         thisPathProgress << "dTlayer       : " << dTLayer << endl;
         thisPathProgress << "xEpsMin       : " << xEpsMin << endl;
         thisPathProgress << "nDivs         : " << nDivs << endl;
         thisPathProgress << "errThresh (p) : " << p << endl;
         thisPathProgress << "nExpanded     : " << nExpandedNodes << endl;
 
+        thisPathProgress << "dxBin         : " << dxBin << endl;
+        thisPathProgress << "dyBin         : " << dyBin << endl;
+        thisPathProgress << "dtBin         : " << dtBin << endl;
+
+        thisPathProgress << "nXBins        : " << nXBins << endl;
+        thisPathProgress << "nYBins        : " << nYBins << endl;
+        thisPathProgress << "nTBins        : " << nTBins << endl;
 
         if(!heap.isHeapEmpty()){              // if the target is found before the end of the heap
             /* Save path details
