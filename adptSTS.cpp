@@ -98,16 +98,16 @@ int dTLayer = 200;              // all time dimensions will be  multiples of dTl
 double xEpsMin = 50;            // smaller values will lead to large node expansions
 
 // number of runs
-const int nTotRuns = 1;
+const int nTotRuns = 2;
 
 // neighbor selection params for all the runs
-int nDivsAll[nTotRuns] = {3};
-
+int nDivsAll[nTotRuns] = {3, 3};
+double pAll[nTotRuns] = {0.25, 0.3};
 // neigbbor selection params
 int nDivs;
 
 // flow Velocity threshold
-double p = 0.1;
+double p;
 
 //cost function parameters
 double k1 = 0.0005;
@@ -438,6 +438,9 @@ int main(){
     int dTmin = 1000;
     int dTmax = 0;
     double dTmean = 0;
+    double dtAllowedMin = 1000;
+    double dtAllowedMax = 0.0;
+    double dtAllowedMean = 0.0;
     double vFmean = 0; double vFmin = Vfm; double vFmax = 0;
     int nExcdDepTime = 0;
     ofstream tempOut;
@@ -448,6 +451,7 @@ int main(){
 
         // set the number of directions and velocity levels considered
         nDivs = nDivsAll[pthNum];
+        p = pAll[pthNum];
 
         // reset all counters
         auto stTime = chrono::high_resolution_clock::now();
@@ -473,11 +477,12 @@ int main(){
             }
         }
         //temporary variables for debugging
-        tempOut.open("tempDataOut.txt", ofstream::out | ofstream::trunc);
+        tempOut.open("tempDataOut"+to_string(pthNum)+".txt", ofstream::out | ofstream::trunc);
         meandx = 0;
         dTmean = 0;
         meanSubdx = 0;
         ndTExceeds = 0;
+        dtAllowedMean = 0.0;
         /* create graph container
         --------------------------*/
         vector< vector<graphNode*> > Graph(nHashBins); // create an empty graph with the specified number of hashbins
@@ -607,7 +612,12 @@ int main(){
             dTmin = (dT < dTmin )?dT : dTmin; 
             dTmax = (dT > dTmax )?dT : dTmax; 
             dTmean = ( dTmean*(nExpandedNodes-1) + dT )/nExpandedNodes;
-            // compute temporal coordinate, its the same for all neighbors
+
+            dtAllowedMin = (dtAllowed < dtAllowedMin )?dtAllowed : dtAllowedMin; 
+            dtAllowedMax = (dtAllowed > dtAllowedMax )?dtAllowed : dtAllowedMax; 
+            dtAllowedMean = ( dtAllowedMean*(nExpandedNodes-1) + dtAllowed )/nExpandedNodes;
+
+             // compute temporal coordinate, its the same for all neighbors
             nt = currNodePtr->t + dT;
             neighbPathLength = currNodePtr->pathLength + 1;
             /* add parallelization here
@@ -635,6 +645,10 @@ int main(){
                 tempOut << " dtMax adptv    : " << dTmax << endl;
                 tempOut << " dtMean adptv   : " << dTmean << endl <<  endl;
                 
+                tempOut << " dtAllowedMin   : " << dtAllowedMin << endl;
+                tempOut << " dtAllowedMax   : " << dtAllowedMax << endl;
+                tempOut << " dtAllowedMean  : " << dtAllowedMean << endl <<  endl;
+                
                 tempOut << " vFmean   : " << vFmean << endl;
                 tempOut << " vFmax    : " << vFmax << endl;
                 tempOut << " vFmin    : " << vFmin << endl;
@@ -649,15 +663,15 @@ int main(){
         outfProgress << "xEpsMin       : " << xEpsMin << endl;
         outfProgress << "nDivs         : " << nDivs << endl;
         outfProgress << "errThresh (p) : " << p << endl;
-        outfProgress << "nExpanded     : " << nExpandedNodes << endl;
+        outfProgress << "nExpanded     : " << nExpandedNodes << endl << endl;
 
         outfProgress << "dxBin         : " << dxBin << endl;
         outfProgress << "dyBin         : " << dyBin << endl;
-        outfProgress << "dtBin         : " << dtBin << endl;
+        outfProgress << "dtBin         : " << dtBin << endl << endl;
 
         outfProgress << "nXBins        : " << nXBins << endl;
         outfProgress << "nYBins        : " << nYBins << endl;
-        outfProgress << "nTBins        : " << nTBins << endl;
+        outfProgress << "nTBins        : " << nTBins << endl << endl;
         
         thisPathProgress << "dTlayer       : " << dTLayer << endl;
         thisPathProgress << "xEpsMin       : " << xEpsMin << endl;
