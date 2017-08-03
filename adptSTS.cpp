@@ -78,7 +78,7 @@ int xmax = 52000;
 int xmin = 14000;
 int ymax = 52000;
 int ymin = 30000;
-int tmax = 185000;
+int tmax = 200000;
 int tmin = 0;
 
 //===========================
@@ -98,11 +98,11 @@ int dTLayer = 200;              // all time dimensions will be  multiples of dTl
 double xEpsMin = 50;            // smaller values will lead to large node expansions
 
 // number of runs
-const int nTotRuns = 2;
+const int nTotRuns = 1;
 
 // neighbor selection params for all the runs
-int nDivsAll[nTotRuns] = {3, 3};
-double pAll[nTotRuns] = {0.25, 0.3};
+int nDivsAll[nTotRuns] = {3};
+double pAll[nTotRuns] = {0.1};
 // neigbbor selection params
 int nDivs;
 
@@ -159,15 +159,17 @@ int neighbPathLength = 0;
 //================================
 // start and end goal definitions
 //================================
+
+const int nStTimes = 4;
 // Start and end
 int startx = 20000;
 int starty = 50000;
-int startt = 0;
+int startt[nStTimes] = {0, 2500, 5000, 10000};
 int endx = 50000;
 int endy = 40000;
 
-int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
-int GOAL_COORD[2] = {endx, endy};
+//int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
+//int GOAL_COORD[2] = {endx, endy};
 
 // temp variable to delete
 int vMlarge = 0;
@@ -445,6 +447,9 @@ int main(){
     int nExcdDepTime = 0;
     ofstream tempOut;
 
+    int hashBin = 0;
+    graphNode* currNodePtr = NULL;
+
     /* Run the graph search for each set of search parameters
      * -------------------------------------------------------*/
     for (int pthNum=0; pthNum<nTotRuns; pthNum++){
@@ -506,20 +511,19 @@ int main(){
 
         /*Add seed node to graph and heap
         ----------------------------------*/
-        graphNode* currNodePtr = new graphNode(START_COORD[0],START_COORD[1],START_COORD[2],0,0,NULL,startt);   // create new node pointer with seed node
-        int hashBin = getHashBinNumber(currNodePtr->x, currNodePtr->y, currNodePtr->t);                         // find the hash bin of the Graph that the node should go to
-        Graph[hashBin].push_back(currNodePtr);                                                                  // add the Node to the correct hashBin in the graph
-        //cout << "number of nodes in hashBin " << hashBin << " : " <<  Graph[hashBin].size() << endl;
-
-        heap.pushNode(currNodePtr);     // add pointer to the node in the heap
-
+        for (int i=0; i<nStTimes; i++){  // add all seed nodes
+            currNodePtr = new graphNode(startx,starty,round( (double)startt[i]/dTLayer )*dTLayer,0,0,NULL,startt[i]);   // create new node pointer with seed node
+            hashBin = getHashBinNumber(currNodePtr->x, currNodePtr->y, currNodePtr->t);                         // find the hash bin of the Graph that the node should go to
+            Graph[hashBin].push_back(currNodePtr);                                                                  // add the Node to the correct hashBin in the graph
+            heap.pushNode(currNodePtr);     // add pointer to the node in the heap
+        }
         /*main graph search loop
         -------------------------*/
         while (!heap.isHeapEmpty()){       // repeat while the heap is not empty
             currNodePtr = heap.popNode();               // pop the node at the root of heap
 
             // check if current node is the goal location
-            nDist = sqrt( (double)( currNodePtr->x-GOAL_COORD[0] )*( currNodePtr->x-GOAL_COORD[0] ) + (double)( currNodePtr->y - GOAL_COORD[1] )*( currNodePtr->y - GOAL_COORD[1] ) );
+            nDist = sqrt( (double)( currNodePtr->x-endx )*( currNodePtr->x-endx ) + (double)( currNodePtr->y - endy )*( currNodePtr->y - endy ) );
             if( nDist <= xEndEps ){     // stop if the current node is the end node
                 gFound = true;
                 break;

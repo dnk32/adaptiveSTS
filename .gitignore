@@ -1,3 +1,7 @@
 # ignore the Results directory
 Results/
 ResultsBigPath/
+temp/
+ResultsSmallPath/
+*.txt
+*.out
