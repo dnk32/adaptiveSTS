@@ -48,10 +48,18 @@ void latestDepSearch::setVelParams(double vMaxVeh, double vMaxFlow){
     Vm = vMaxVeh; Vfm = vMaxFlow;
 }
 
-void latestDepSearch::setStartCoords(double xSt, double ySt){
+void latestDepSearch::setStartCoords(double xSt, double ySt, searchType srchDir){
     startx = xSt;
     starty = ySt;
-    startt = tmax;
+    searchDir = srchDir;
+    switch (searchDir){ 
+        case FREE_END_TIME :
+            startt = tmax;
+            break;
+        case FREE_START_TIME :
+            startt = tmin;
+            break;
+    }
 }
 
 
@@ -167,7 +175,7 @@ bool latestDepSearch::isAccessible(int nx,int ny,double t){
 void latestDepSearch::runSearch( vector <double> *depTimeVec){
     (*depTimeVec).clear();
     (*depTimeVec).resize(nX*nY);
-    fill( (*depTimeVec).begin(), (*depTimeVec).end(), -1.0 );
+    fill( (*depTimeVec).begin(), (*depTimeVec).end(), -searchDir*tmax*1.1 );
 
     bool isVmSmall = (Vm<=Vfm);
 
@@ -225,7 +233,7 @@ void latestDepSearch::runSearch( vector <double> *depTimeVec){
     while (!heap.isHeapEmpty()){       // repeat while the heap is not empty
         currNodePtr = heap.popNode();                                           // pop the node at the root of heap
         int covMapBin = getHashBinNumber(currNodePtr->x,currNodePtr->y,0,false, nX, nY, hashBinHeight);
-        if ( (*depTimeVec)[covMapBin] < 0 ){
+        if ( (*depTimeVec)[covMapBin] < tmin || (*depTimeVec)[covMapBin] > tmax ){
             (*depTimeVec)[covMapBin] = currNodePtr->timeAtNode;
             totNodesExplored++;
             if ( !(totNodesExplored % ( (nX*nY)/20 ) ) )
@@ -235,13 +243,13 @@ void latestDepSearch::runSearch( vector <double> *depTimeVec){
         //if(currNodePtr->x == GOAL_COORD[0] && currNodePtr->y == GOAL_COORD[1])     // stop if the current node is the end node
         //    break;
 
-        if ( currNodePtr->timeAtNode<=tmin || totNodesExplored==(nX*nY) )
+        if ( ( searchDir == FREE_END_TIME && currNodePtr->timeAtNode<=tmin ) || ( searchDir == FREE_START_TIME && currNodePtr->timeAtNode>=tmax ) || totNodesExplored==(nX*nY) )
             break;
 
         //getFlowVel(currNodePtr->x,currNodePtr->y,currNodePtr->t,vx,vy);         // get the flow at current node
         getFlowVelFromVecs(currNodePtr->x,currNodePtr->y,currNodePtr->timeAtNode,vx,vy);         // get the flow at current node
         U = sqrt(vx*vx + vy*vy);
-        thFlow = atan2(-vy,-vx);                  // flow direction
+        thFlow = atan2(-searchDir*vy,-searchDir*vx);                  // flow direction
 
         /*Find valid neighbors of current node*/
         for (int a=-lim; a<=lim; a++){
@@ -254,7 +262,7 @@ void latestDepSearch::runSearch( vector <double> *depTimeVec){
                 if ( cost<=0 )    // ignore if direction is not accessible
                     continue;
                 
-                tAtNeighb = currNodePtr->timeAtNode - cost;
+                tAtNeighb = currNodePtr->timeAtNode -searchDir*cost;
                 if (!isAccessible(nx, ny, tAtNeighb)) // ignore if the node is obstructed
                         continue;
                 

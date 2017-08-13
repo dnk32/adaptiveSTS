@@ -3,6 +3,15 @@
 
 #include <gsl/gsl_spline.h>
 
+//=============================
+// Search direction enumurator
+//=============================
+enum searchType{
+    FREE_END_TIME = 1,          // list of fixed start times provided
+    FREE_START_TIME = -1        // list of fixed end times provided
+};
+
+
 //===================
 // Class graphNode
 //===================

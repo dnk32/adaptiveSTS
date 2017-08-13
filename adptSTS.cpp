@@ -19,6 +19,20 @@ using namespace Eigen;
 //===========================
 #define dxType 2 // if dxType = 1 dxAllowed and dtAllowed computed together
                  // if dxType = 2 dxAllowed and dtAllowed computed seperately
+//===========================
+// search type
+//===========================
+    /* Options are:
+     * FREE_END_TIME : a list of fixed start times are provided,
+     *                 the code returns a path to the goal that starts at one
+     *                 of the given start times and ends at the goal at the time
+     *                 which gives least cost
+     * 
+     * FREE_START_TIME : a list of times at goal are provided.
+     *                   the code returns a path that terminates at the goal at
+     *                   one of the given end times and starts at a time that gives
+     *                   the least path cost. */
+searchType searchDir = FREE_END_TIME;
 
 //========================================
 // Environment description for flow velocity file
@@ -78,7 +92,7 @@ int xmax = 52000;
 int xmin = 14000;
 int ymax = 52000;
 int ymin = 30000;
-int tmax = 200000;
+int tmax = 185000;
 int tmin = 0;
 
 //===========================
@@ -102,7 +116,7 @@ const int nTotRuns = 1;
 
 // neighbor selection params for all the runs
 int nDivsAll[nTotRuns] = {3};
-double pAll[nTotRuns] = {0.1};
+double pAll[nTotRuns] = {0.3};
 // neigbbor selection params
 int nDivs;
 
@@ -160,16 +174,18 @@ int neighbPathLength = 0;
 // start and end goal definitions
 //================================
 
-const int nStTimes = 4;
+const int nStTimes = 1; // the number of start times to consider for searchDir = FREE_END_TIME
+const int nEndTimes = 1; // the number of end times to consider for searchDir = FREE_START_TIME
 // Start and end
 int startx = 20000;
 int starty = 50000;
-int startt[nStTimes] = {0, 2500, 5000, 10000};
+int startt[nStTimes] = {32600};
 int endx = 50000;
 int endy = 40000;
+int endt[nEndTimes] = {180400};
 
-//int START_COORD[3] = {startx, starty, round( (double)startt/dTLayer )*dTLayer};
-//int GOAL_COORD[2] = {endx, endy};
+// goal coordinates
+int goalx, goaly;
 
 // temp variable to delete
 int vMlarge = 0;
@@ -237,7 +253,7 @@ vector <double>  getDepTimeVect(double xSpGT, double ySpGT, double tSpGT){
     dptTimeSearch.setHashBinParams(nHashBinsOptT, hashBinHeight, &getHashBinNumberOptT);
     dptTimeSearch.setDataVecs(xSpData, ySpData, tSpData, nX, nY, nT, &vXVec, &vYVec, &OBS);
     dptTimeSearch.setVelParams(Vm, Vfm);
-    dptTimeSearch.setStartCoords(endx, endy);
+    dptTimeSearch.setStartCoords(goalx, goaly, searchDir);
     dptTimeSearch.runSearch( &depTimeVec );
     
     return depTimeVec;
@@ -269,8 +285,8 @@ double getLatestDepTime(int nx, int ny, vector<double> *depTimeVec, double xSpGT
 void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd, double xSpGT, double ySpGT, vector <double> *depTimeVector, int *nExcdDepTime){//, mutex *heapGuard, vector<mutex> *graphGuard){
 
     for (int a=nSt; a<nEnd ; a++){
-       int nx = currNodePtr->x + ( vx + grid[a][0] )*dT;     // select x and y positions of the neighb
-       int ny = currNodePtr->y + ( vy + grid[a][1] )*dT;
+       int nx = currNodePtr->x + ( searchDir*vx + grid[a][0] )*dT;     // select x and y positions of the neighb
+       int ny = currNodePtr->y + ( searchDir*vy + grid[a][1] )*dT;
     
        if( !isAccessible(nx,ny,nt) )             // ignore this node if this is not accessible
            continue;
@@ -304,7 +320,7 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
        if(neighbNode){
            // if neighbor is not expanded already
            if(!neighbNode->expanded){
-               double tempU = sqrt( pow( (neighbNode->x - currNodePtr->x)/(double)dT - vx, 2)+pow( (neighbNode->y - currNodePtr->y)/(double)dT - vy, 2) );
+               double tempU = sqrt( pow( (neighbNode->x - currNodePtr->x)/(double)dT - searchDir*vx, 2)+pow( (neighbNode->y - currNodePtr->y)/(double)dT - searchDir*vy, 2) );
                // proceed only is this node can be reached from current node
                if (tempU <= (Vm*1.1)){
                    double cost = ( k1 + k2*pow(tempU,alpha) )*dT;
@@ -341,16 +357,52 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
 // Main Code
 //===========================
 int main(){
-
+    /* Read in obstacle data
+     * -------------------------*/
+    OBS = readDataToVecs("../obstacles.txt", nX, nY, 1);
+    
+    /* check start and goal coords
+     * ----------------------------*/
+    bool seedNodesSet;
+    switch (searchDir){
+        case FREE_END_TIME :
+            if ( !isAccessible(endx, endy, tmin) ){
+                cout << "End coordinate not accessible" << endl;
+                return 1;
+            }
+            goalx = endx; goaly = endy;
+            for (int i=0; i<nStTimes; i++){  // add all seed nodes
+                if ( !isAccessible( startx, starty, startt[i]) ){
+                    cout << "starting coordinates are invalid" << endl;
+                    continue;
+                }
+                seedNodesSet = true;
+            }
+            break;
+        case FREE_START_TIME :
+            if ( !isAccessible( startx, starty, tmin) ){
+                cout << "start coordinate not accessible" << endl;
+                return 1;
+            }
+            goalx = startx; goaly = starty;
+            for (int i=0; i<nEndTimes; i++){  // add all seed nodes
+                if ( !isAccessible( endx, endy, endt[i]) ){
+                    cout << "ending coordinates are invalid" << endl;
+                    continue;
+                }
+                seedNodesSet = true;
+            }
+            break;
+    }
+    if (!seedNodesSet){
+        cout << "NONE OF THE SEED NODES ARE VALID!!!" << endl;
+        return 1;
+    }
     /* Read data files containing velocity information
      * ------------------------------------------------*/
     vXVec = readDataToVecs("../U.txt", nX, nY, nT);
     vYVec = readDataToVecs("../V.txt", nX, nY, nT);
 
-    /* Read in obstacle data
-     * -------------------------*/
-    OBS = readDataToVecs("../obstacles.txt", nX, nY, 1);
-    
     /* Open files to save result
     ----------------------------*/
     ofstream outfProgress;                          // open file to save path parameters
@@ -387,9 +439,6 @@ int main(){
     double vx;                          // flow velocities
     double vy;
     double vF;                          // flow velocity
-    double thFlow;                      // angle of the flow
-    double thHdg;                       // angle of heading
-    double th;                          // heading wrt to flow
     double dvXdx, dvXdy, dvYdx, dvYdy, dvXdt, dvYdt;
 
     int nx, ny, nt;                     // neighbor spacial cordinates
@@ -449,11 +498,12 @@ int main(){
 
     int hashBin = 0;
     graphNode* currNodePtr = NULL;
-
+    double latDepTime = -searchDir*tmax*1.1;
+    
     /* Run the graph search for each set of search parameters
      * -------------------------------------------------------*/
     for (int pthNum=0; pthNum<nTotRuns; pthNum++){
-
+        
         // set the number of directions and velocity levels considered
         nDivs = nDivsAll[pthNum];
         p = pAll[pthNum];
@@ -511,25 +561,39 @@ int main(){
 
         /*Add seed node to graph and heap
         ----------------------------------*/
-        for (int i=0; i<nStTimes; i++){  // add all seed nodes
-            currNodePtr = new graphNode(startx,starty,round( (double)startt[i]/dTLayer )*dTLayer,0,0,NULL,startt[i]);   // create new node pointer with seed node
-            hashBin = getHashBinNumber(currNodePtr->x, currNodePtr->y, currNodePtr->t);                         // find the hash bin of the Graph that the node should go to
-            Graph[hashBin].push_back(currNodePtr);                                                                  // add the Node to the correct hashBin in the graph
-            heap.pushNode(currNodePtr);     // add pointer to the node in the heap
+        switch (searchDir){
+            case FREE_END_TIME :
+                for (int i=0; i<nStTimes; i++){  // add all seed nodes
+                    currNodePtr = new graphNode(startx,starty,round( (double)startt[i]/dTLayer )*dTLayer,0,0,NULL,startt[i]);   // create new node pointer with seed node
+                    hashBin = getHashBinNumber(currNodePtr->x, currNodePtr->y, currNodePtr->t);                         // find the hash bin of the Graph that the node should go to
+                    Graph[hashBin].push_back(currNodePtr);                                                                  // add the Node to the correct hashBin in the graph
+                    heap.pushNode(currNodePtr);     // add pointer to the node in the heap
+                }
+                break;
+            case FREE_START_TIME :
+                for (int i=0; i<nEndTimes; i++){  // add all seed nodes
+                    currNodePtr = new graphNode(endx,endy,round( (double)endt[i]/dTLayer )*dTLayer,0,0,NULL,endt[i]);   // create new node pointer with seed node
+                    hashBin = getHashBinNumber(currNodePtr->x, currNodePtr->y, currNodePtr->t);                         // find the hash bin of the Graph that the node should go to
+                    Graph[hashBin].push_back(currNodePtr);                                                                  // add the Node to the correct hashBin in the graph
+                    heap.pushNode(currNodePtr);     // add pointer to the node in the heap
+                }
+                break;
         }
+        
         /*main graph search loop
         -------------------------*/
         while (!heap.isHeapEmpty()){       // repeat while the heap is not empty
             currNodePtr = heap.popNode();               // pop the node at the root of heap
 
             // check if current node is the goal location
-            nDist = sqrt( (double)( currNodePtr->x-endx )*( currNodePtr->x-endx ) + (double)( currNodePtr->y - endy )*( currNodePtr->y - endy ) );
+            nDist = sqrt( (double)( currNodePtr->x-goalx )*( currNodePtr->x-goalx ) + (double)( currNodePtr->y - goaly )*( currNodePtr->y - goaly ) );
             if( nDist <= xEndEps ){     // stop if the current node is the end node
                 gFound = true;
                 break;
             }
 
-            if ( currNodePtr->t > getLatestDepTime(currNodePtr->x, currNodePtr->y, &depTimeVec, xSpGridOptT, ySpGridOptT) ){ // ignore if the time at node is more than the latest time of departure
+            latDepTime = getLatestDepTime(currNodePtr->x, currNodePtr->y, &depTimeVec, xSpGridOptT, ySpGridOptT);
+            if ( ( searchDir==FREE_END_TIME && currNodePtr->t > latDepTime ) || ( searchDir==FREE_START_TIME && currNodePtr->t < latDepTime ) ){ // ignore if the time at node is more than the latest time of departure
                 nExcdDepTime++;
                 continue; 
             }
@@ -542,7 +606,6 @@ int main(){
             
             // if not goal, proceed
             getFlowFromVecs(currNodePtr->x,currNodePtr->y,currNodePtr->t,vx,vy, dvXdx, dvXdy, dvYdx, dvYdy, dvXdt, dvYdt);   // get the flow at current node
-            thFlow = atan2(vy,vx);                                                  // direction of the flow
             vF = sqrt(vx*vx + vy*vy);
             vSel =(vF<Vm/5.0)? Vm/5.0: vF;//(vF<Vm/1.0)? Vm/1.0: vF;
             
@@ -622,7 +685,7 @@ int main(){
             dtAllowedMean = ( dtAllowedMean*(nExpandedNodes-1) + dtAllowed )/nExpandedNodes;
 
              // compute temporal coordinate, its the same for all neighbors
-            nt = currNodePtr->t + dT;
+            nt = currNodePtr->t + searchDir*dT;
             neighbPathLength = currNodePtr->pathLength + 1;
             /* add parallelization here
              *-------------------------- */

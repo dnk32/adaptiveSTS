@@ -202,8 +202,8 @@ bool isAccessible(int nx,int ny,int nt)
 double getHeuristic(int nx,int ny)
 {
 //    return 0.0;
-    double delX = (endx - nx);
-	double delY = (endy - ny);
+    double delX = (goalx - nx);
+	double delY = (goaly - ny);
 
 	double dt = sqrt(delX*delX + delY*delY)/(Vfm + vMinH);
     return (k1 + k2*pow(vMinH,alpha) )*dt;
@@ -365,7 +365,7 @@ void findDt(double x1, double y1, double t1, double vF0, double vSel, double &tr
 //==========================================
 
 bool isReachable(double x, double y, double t){
-    double dt = sqrt( (endx-x)*(endx-x) + (endy-y)*(endy-y) )/( Vfm + Vm);
+    double dt = sqrt( (goalx-x)*(goalx-x) + (goaly-y)*(goaly-y) )/( Vfm + Vm);
     if ( (t+dt)<tmax )
         return true;
     else

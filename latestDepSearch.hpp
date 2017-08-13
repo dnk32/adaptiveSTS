@@ -47,6 +47,7 @@ class latestDepSearch{
     // coordinates to start search
     double startx, starty, startt;
     int START_COORD[3];
+    searchType searchDir;
 
     /*====================
      * member functions
@@ -65,7 +66,7 @@ class latestDepSearch{
     void setHashBinParams(int nHBins,int hBinHeight, int (*hashFnc)(int, int, double, bool, int, int, int) );
     void setDataVecs(double xData, double yData, double tData, int nXdata, int nYdata, int nTdata , dblVec3D *uVec, dblVec3D *vVec, dblVec3D *obsVec);
     void setVelParams(double vMaxVeh, double vMaxFlow);
-    void setStartCoords(double xSt, double ySt);
+    void setStartCoords(double xSt, double ySt, searchType srchDir);
     vector <double> getEarliestDepTimes();
     void runSearch( vector <double> *depTimeVec);
 };
