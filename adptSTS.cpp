@@ -34,6 +34,23 @@ using namespace Eigen;
      *                   the least path cost. */
 searchType searchDir = FREE_END_TIME;
 
+//=============================================
+// Min Deterministic cost or Min Expected cost
+//=============================================
+    /* Options are :
+     * MIN_DETERMINISTIC : minimises the deterministic cost with no concern about
+     *                     uncertainty of flow velocity measurements.
+     * MIN_EXPECTED : minimises the expected cost under the uncertainty of flow velocity
+     *                measurements.
+     *                NOTE : only works when alpha = 2. For other alpha values, selecting
+     *                MIN_EXPECTED as the cost type will throw an error.
+     */
+    enum pathCostType{
+        MIN_DETERMINISTIC = 0,
+        MIN_EXPECTED = 1
+    };
+
+pathCostType setPathCostType = MIN_EXPECTED;
 //========================================
 // Environment description for flow velocity file
 //========================================
@@ -105,6 +122,13 @@ double Vfm = 0.7288;  // m/s or mm/ms
 //max vehicle speed allowed
 double Vm = 0.5; // m/s or mm/ms
 
+// mean flow speed
+double vMeanFlow = 0.18;
+
+// standard deviation of the measurement noise
+double nSigmaX = vMeanFlow*0.25;
+double nSigmaY = vMeanFlow*0.25;
+
 // discrete time layers considered
 int dTLayer = 200;              // all time dimensions will be  multiples of dTlayer.
                                 // this is done to speed up the search
@@ -124,9 +148,12 @@ int nDivs;
 double p;
 
 //cost function parameters
-double k1 = 0.0005;
+double k1Nominal = 0.0005;      // nominal K1 without noise
 double k2 = 1.0;
 int alpha = 2;
+
+// actual k1 to use. If deterministic cost is required use setPathCostType = MIN_DETERMINISTIC, for min expected cost use setPathCostType = MIN_EXPECTED
+double k1 = k1Nominal + k2*( nSigmaX*nSigmaX + nSigmaY*nSigmaY )*setPathCostType;
 
 // termination epsilon
 int xEndEps =100;
@@ -179,7 +206,7 @@ const int nEndTimes = 1; // the number of end times to consider for searchDir = 
 // Start and end
 int startx = 20000;
 int starty = 50000;
-int startt[nStTimes] = {32600};
+int startt[nStTimes] = {0};
 int endx = 50000;
 int endy = 40000;
 int endt[nEndTimes] = {180400};
@@ -357,6 +384,15 @@ void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *
 // Main Code
 //===========================
 int main(){
+    /* Check if alpha value is comensurate with setPathCostType
+     * ---------------------------------------------------------*/
+    if (setPathCostType == MIN_EXPECTED){
+        if (alpha!=2){
+            cout << "Incorrect setPathCostType!!! \nMIN_EXPECTED cost type only works when alpha = 2." << endl;
+            cout << "Currently alpha = " << alpha << endl;
+            return 1;
+        }
+    }
     /* Read in obstacle data
      * -------------------------*/
     OBS = readDataToVecs("../obstacles.txt", nX, nY, 1);
