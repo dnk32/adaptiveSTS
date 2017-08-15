@@ -50,7 +50,7 @@ searchType searchDir = FREE_END_TIME;
         MIN_EXPECTED = 1
     };
 
-pathCostType setPathCostType = MIN_EXPECTED;
+pathCostType setPathCostType = MIN_DETERMINISTIC;
 //========================================
 // Environment description for flow velocity file
 //========================================
@@ -140,7 +140,7 @@ const int nTotRuns = 1;
 
 // neighbor selection params for all the runs
 int nDivsAll[nTotRuns] = {3};
-double pAll[nTotRuns] = {0.3};
+double pAll[nTotRuns] = {0.1};
 // neigbbor selection params
 int nDivs;
 
@@ -294,8 +294,8 @@ double getLatestDepTime(int nx, int ny, vector<double> *depTimeVec, double xSpGT
     int xCoord = (nx-xmin)/xSpGT;
     int yCoord = (ny-ymin)/ySpGT;
 
-    double dx = (nx - xCoord*xSpGT)/xSpGT;
-    double dy = (ny - yCoord*ySpGT)/ySpGT;
+    double dx = (nx - xmin - xCoord*xSpGT)/xSpGT;
+    double dy = (ny - ymin - yCoord*ySpGT)/ySpGT;
 
     int hB00 = getHashBinNumberOptT(xCoord, yCoord, 0, false, nXOptT, nYOptT, 0); 
     int hB10 = getHashBinNumberOptT(xCoord+1, yCoord, 0, false, nXOptT, nYOptT, 0); 
