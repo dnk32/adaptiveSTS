@@ -4,7 +4,9 @@
 
 #include <vector>
 #include <string>
-#include "classDefs.h" // graph node class and heap class
+#include "graphNode.hpp" // graph node class and heap class
+#include "searchEnums.hpp"
+#include "HeapContainer.hpp"
 
 using namespace std;
 typedef vector< vector< vector< double > > > dblVec3D; 

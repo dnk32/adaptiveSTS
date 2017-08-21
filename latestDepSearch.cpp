@@ -8,7 +8,6 @@
 #include <sstream>      // for string stream
 #include <algorithm>
 
-//#include "classDefs.h"
 #include "latestDepSearch.hpp"
 
 
@@ -214,7 +213,7 @@ void latestDepSearch::runSearch( vector <double> *depTimeVec){
 
     /* create new heap container
     -------------------------------*/
-    Heap heap;                                          // new empty heap
+    HeapContainer heap;                                          // new empty heap
 
     ///* coverage map
     //-------------------------------*/

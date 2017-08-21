@@ -8,8 +8,12 @@
 #include <thread>
 #include <mutex>
 
-#include "classDefs.h"
+//#include "classDefs.h"
+#include "searchEnums.hpp"
+#include "graphNode.hpp"
+#include "HeapContainer.hpp"
 #include "latestDepSearch.hpp"
+#include "refPathErr.hpp"
 
 using namespace std;
 using namespace Eigen;
@@ -32,6 +36,7 @@ using namespace Eigen;
      *                   the code returns a path that terminates at the goal at
      *                   one of the given end times and starts at a time that gives
      *                   the least path cost. */
+
 searchType searchDir = FREE_END_TIME;
 
 //=============================================
@@ -45,10 +50,6 @@ searchType searchDir = FREE_END_TIME;
      *                NOTE : only works when alpha = 2. For other alpha values, selecting
      *                MIN_EXPECTED as the cost type will throw an error.
      */
-    enum pathCostType{
-        MIN_DETERMINISTIC = 0,
-        MIN_EXPECTED = 1
-    };
 
 pathCostType setPathCostType = MIN_DETERMINISTIC;
 //========================================
@@ -126,8 +127,8 @@ double Vm = 0.5; // m/s or mm/ms
 double vMeanFlow = 0.18;
 
 // standard deviation of the measurement noise
-double nSigmaX = vMeanFlow*0.25;
-double nSigmaY = vMeanFlow*0.25;
+double nSigmaX = vMeanFlow*0.5;
+double nSigmaY = vMeanFlow*0.5;
 
 // discrete time layers considered
 int dTLayer = 200;              // all time dimensions will be  multiples of dTlayer.
@@ -309,7 +310,7 @@ double getLatestDepTime(int nx, int ny, vector<double> *depTimeVec, double xSpGT
 // Add Neighbors
 //===========================
 
-void addNeighbors(Heap *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd, double xSpGT, double ySpGT, vector <double> *depTimeVector, int *nExcdDepTime){//, mutex *heapGuard, vector<mutex> *graphGuard){
+void addNeighbors(HeapContainer *heap, vector< vector< graphNode* > > *Graph, graphNode *currNodePtr, double vx, double vy,double grid[][2], double pCost[], int nt, int dT,double xEps, int nSt, int nEnd, double xSpGT, double ySpGT, vector <double> *depTimeVector, int *nExcdDepTime){//, mutex *heapGuard, vector<mutex> *graphGuard){
 
     for (int a=nSt; a<nEnd ; a++){
        int nx = currNodePtr->x + ( searchDir*vx + grid[a][0] )*dT;     // select x and y positions of the neighb
@@ -447,9 +448,8 @@ int main(){
     ofstream outf, thisPathProgress;                // open file to save paths
 
     // reference path for comparison
-    optPath refPath;
+    refPathErr refPath;
     refPath.readPathFromFile("../refPath2.txt");       // read the optimalpath into file
-    refPath.createInterpolant();                    // create interpolants using the data
 
     /* obtain latest departure time for coordinates on the grid
     -------------------------------------------------------------*/
@@ -588,7 +588,7 @@ int main(){
 
         /* create new heap container
         -------------------------------*/
-        Heap heap;                                          // new empty heap
+        HeapContainer heap;                              // new empty heap
 
         /* Mutexes for guarding heap and graph
          *-------------------------------------*/
@@ -810,7 +810,7 @@ int main(){
                 tRow.clear();
             }
 
-            double mE = refPath.getMeanPathError( pathVect );
+            double mE = refPath.getMeanPathError( &pathVect );
             
             cout << "nDivs        : " << nDivs << endl;
             cout << "mE (m)       : " << mE << endl;
